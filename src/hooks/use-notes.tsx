@@ -124,34 +124,39 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
 };
 
 const getInitialState = (): NotesState => {
-  if (typeof window === "undefined") {
-    return { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null };
-  }
-  try {
-    const item = window.localStorage.getItem("collabnotes_data");
-    if (item) {
-      const parsed = JSON.parse(item);
-      // Revive dates
-      parsed.notes.forEach((note: Note) => {
-        note.createdAt = new Date(note.createdAt);
-        note.versions.forEach((v: NoteVersion) => {
-          v.timestamp = new Date(v.timestamp);
-        });
-      });
-      return parsed;
-    }
-  } catch (error) {
-    console.error("Error reading from localStorage", error);
-  }
   return { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null };
 };
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(notesReducer, getInitialState());
 
+  // Load from localStorage on the client side only
   useEffect(() => {
     try {
-      window.localStorage.setItem("collabnotes_data", JSON.stringify(state));
+      const item = window.localStorage.getItem("collabnotes_data");
+      if (item) {
+        const parsed = JSON.parse(item);
+        // Revive dates
+        parsed.notes.forEach((note: Note) => {
+          note.createdAt = new Date(note.createdAt);
+          note.versions.forEach((v: NoteVersion) => {
+            v.timestamp = new Date(v.timestamp);
+          });
+        });
+        dispatch({ type: "SET_INITIAL_STATE", payload: parsed });
+      }
+    } catch (error) {
+      console.error("Error reading from localStorage", error);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    try {
+      // Avoid writing initial state to localStorage on first render
+      if (state.notes !== INITIAL_NOTES) {
+        window.localStorage.setItem("collabnotes_data", JSON.stringify(state));
+      }
     } catch (error) {
       console.error("Error writing to localStorage", error);
     }

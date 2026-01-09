@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -6,6 +7,7 @@ import {
   useContext,
   useReducer,
   useEffect,
+  useState,
   type ReactNode,
 } from "react";
 import { INITIAL_NOTES } from "@/lib/constants";
@@ -49,19 +51,11 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
           { id: `v-${Date.now()}`, content: "", timestamp: new Date() },
         ],
       };
-      const newState = {
+      return {
         ...state,
         notes: [newNote, ...state.notes],
         activeNoteId: newNote.id,
       };
-      
-      try {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(newState));
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
-      }
-
-      return newState;
     }
     case "DELETE_NOTE": {
       const newNotes = state.notes.filter((note) => note.id !== action.payload);
@@ -69,24 +63,16 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
       if (state.activeNoteId === action.payload) {
         newActiveNoteId = newNotes.length > 0 ? newNotes[0].id : null;
       }
-      const newState = {
+      return {
         ...state,
         notes: newNotes,
         activeNoteId: newActiveNoteId,
       };
-
-      try {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(newState));
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
-      }
-
-      return newState;
     }
     case "SELECT_NOTE":
       return { ...state, activeNoteId: action.payload };
     case "UPDATE_NOTE_TITLE": {
-      const newState = {
+      return {
         ...state,
         notes: state.notes.map((note) =>
           note.id === action.payload.id
@@ -94,17 +80,9 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
             : note
         ),
       };
-
-      try {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(newState));
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
-      }
-
-      return newState;
     }
     case "UPDATE_NOTE_CONTENT": {
-      const newState = {
+      return {
         ...state,
         notes: state.notes.map((note) => {
           if (note.id === action.payload.id) {
@@ -113,22 +91,15 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
               content: action.payload.content,
               timestamp: new Date(),
             };
-            // Keep only the last 20 versions for performance
             const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
             return { ...note, versions: updatedVersions };
           }
           return note;
         }),
       };
-      try {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(newState));
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
-      }
-      return newState;
     }
     case "RESTORE_VERSION": {
-      const newState = {
+      return {
         ...state,
         notes: state.notes.map((note) => {
           if (note.id === action.payload.noteId) {
@@ -148,13 +119,6 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
           return note;
         }),
       };
-
-      try {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(newState));
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
-      }
-      return newState;
     }
     default:
       return state;
@@ -167,13 +131,13 @@ const getInitialState = (): NotesState => {
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(notesReducer, getInitialState());
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     try {
       const item = window.localStorage.getItem("collabnotes_data");
       if (item) {
         const parsed = JSON.parse(item);
-        // Revive dates
         if (parsed.notes) {
           parsed.notes.forEach((note: Note) => {
             note.createdAt = new Date(note.createdAt);
@@ -191,10 +155,27 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Error reading from localStorage", error);
       dispatch({ type: "SET_INITIAL_STATE", payload: { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null } });
+    } finally {
+        setIsInitialized(true);
     }
   }, []);
 
+  useEffect(() => {
+    if (isInitialized) {
+      try {
+        const serializedState = JSON.stringify(state);
+        window.localStorage.setItem("collabnotes_data", serializedState);
+      } catch (error) {
+        console.error("Error writing to localStorage", error);
+      }
+    }
+  }, [state, isInitialized]);
+
   const activeNote = state.notes.find((note) => note.id === state.activeNoteId);
+
+  if (!isInitialized) {
+      return null;
+  }
 
   return (
     <NotesContext.Provider value={{ ...state, dispatch, activeNote }}>

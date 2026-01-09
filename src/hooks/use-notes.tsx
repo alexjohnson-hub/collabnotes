@@ -126,7 +126,7 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
 };
 
 const getInitialState = (): NotesState => {
-  return { notes: [], activeNoteId: null };
+    return { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null };
 };
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
@@ -146,15 +146,10 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
             });
           });
           dispatch({ type: "SET_INITIAL_STATE", payload: parsed });
-        } else {
-            dispatch({ type: "SET_INITIAL_STATE", payload: { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null } });
         }
-      } else {
-        dispatch({ type: "SET_INITIAL_STATE", payload: { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null } });
       }
     } catch (error) {
       console.error("Error reading from localStorage", error);
-      dispatch({ type: "SET_INITIAL_STATE", payload: { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null } });
     } finally {
         setIsInitialized(true);
     }

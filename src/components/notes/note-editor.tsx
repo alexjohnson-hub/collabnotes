@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useNotes } from "@/hooks/use-notes";
+import { useNotes } from "@/hooks/use-notes.tsx";
 import { useToast } from "@/hooks/use-toast";
 import { EditorToolbar } from "./editor-toolbar";
 import { History, Trash2 } from "lucide-react";
@@ -38,12 +38,14 @@ export function NoteEditor() {
     activeNote?.versions[0]?.content || ""
   );
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
+  const [lastSaved, setLastSaved] = React.useState("");
 
   // Update local state when active note changes
   React.useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title);
       setContent(activeNote.versions[0]?.content || "");
+      setLastSaved(new Date(activeNote.versions[0].timestamp).toLocaleString());
     }
   }, [activeNote]);
 
@@ -105,7 +107,7 @@ export function NoteEditor() {
                     placeholder="Untitled Note"
                 />
                 <CardDescription className="mt-1">
-                    Last saved: {new Date(activeNote.versions[0].timestamp).toLocaleString()}
+                    {lastSaved ? `Last saved: ${lastSaved}` : '...'}
                 </CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">

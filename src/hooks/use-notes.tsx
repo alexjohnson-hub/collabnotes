@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import {
   createContext,
   useContext,
@@ -129,39 +130,50 @@ const getInitialState = (): NotesState => {
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(notesReducer, getInitialState());
+  const [isClient, setIsClient] = React.useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Load from localStorage on the client side only
   useEffect(() => {
-    try {
-      const item = window.localStorage.getItem("collabnotes_data");
-      if (item) {
-        const parsed = JSON.parse(item);
-        // Revive dates
-        parsed.notes.forEach((note: Note) => {
-          note.createdAt = new Date(note.createdAt);
-          note.versions.forEach((v: NoteVersion) => {
-            v.timestamp = new Date(v.timestamp);
+    if (isClient) {
+      try {
+        const item = window.localStorage.getItem("collabnotes_data");
+        if (item) {
+          const parsed = JSON.parse(item);
+          // Revive dates
+          parsed.notes.forEach((note: Note) => {
+            note.createdAt = new Date(note.createdAt);
+            note.versions.forEach((v: NoteVersion) => {
+              v.timestamp = new Date(v.timestamp);
+            });
           });
-        });
-        dispatch({ type: "SET_INITIAL_STATE", payload: parsed });
+          dispatch({ type: "SET_INITIAL_STATE", payload: parsed });
+        }
+      } catch (error) {
+        console.error("Error reading from localStorage", error);
       }
-    } catch (error) {
-      console.error("Error reading from localStorage", error);
     }
-  }, []);
-
+  }, [isClient]);
 
   useEffect(() => {
-    try {
-      // Avoid writing initial state to localStorage on first render
-      if (state.notes !== INITIAL_NOTES) {
-        window.localStorage.setItem("collabnotes_data", JSON.stringify(state));
+    if (isClient) {
+      try {
+        // Avoid writing initial state to localStorage on first render
+        if (state.notes !== INITIAL_NOTES) {
+          window.localStorage.setItem(
+            "collabnotes_data",
+            JSON.stringify(state)
+          );
+        }
+      } catch (error) {
+        console.error("Error writing to localStorage", error);
       }
-    } catch (error) {
-      console.error("Error writing to localStorage", error);
     }
-  }, [state]);
-  
+  }, [state, isClient]);
+
   const activeNote = state.notes.find((note) => note.id === state.activeNoteId);
 
   return (

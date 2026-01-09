@@ -14,17 +14,44 @@ import { useNotes } from "@/hooks/use-notes";
 import { cn } from "@/lib/utils";
 import { FilePlus, Notebook } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import * as React from "react";
+
+
+function NoteListItem({ note }: { note: ReturnType<typeof useNotes>['notes'][0] }) {
+  const { activeNoteId, dispatch } = useNotes();
+  const [timeAgo, setTimeAgo] = React.useState('');
+
+  React.useEffect(() => {
+    setTimeAgo(formatDistanceToNow(note.createdAt, { addSuffix: true }));
+  }, [note.createdAt]);
+
+  const handleSelectNote = (id: string) => {
+    dispatch({ type: "SELECT_NOTE", payload: id });
+  };
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        onClick={() => handleSelectNote(note.id)}
+        isActive={note.id === activeNoteId}
+        className="h-auto flex-col items-start p-2"
+      >
+        <span className="font-medium text-sm w-full truncate">{note.title}</span>
+        <span className="text-xs text-sidebar-foreground/70 w-full">
+          {timeAgo}
+        </span>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  )
+}
 
 export function NoteList() {
-  const { notes, activeNoteId, dispatch } = useNotes();
+  const { notes, dispatch } = useNotes();
 
   const handleNewNote = () => {
     dispatch({ type: "ADD_NOTE" });
   };
 
-  const handleSelectNote = (id: string) => {
-    dispatch({ type: "SELECT_NOTE", payload: id });
-  };
 
   return (
     <>
@@ -42,18 +69,7 @@ export function NoteList() {
           </SidebarGroupLabel>
           <SidebarMenu>
             {notes.map((note) => (
-              <SidebarMenuItem key={note.id}>
-                <SidebarMenuButton
-                  onClick={() => handleSelectNote(note.id)}
-                  isActive={note.id === activeNoteId}
-                  className="h-auto flex-col items-start p-2"
-                >
-                  <span className="font-medium text-sm w-full truncate">{note.title}</span>
-                  <span className="text-xs text-sidebar-foreground/70 w-full">
-                    {formatDistanceToNow(note.createdAt, { addSuffix: true })}
-                  </span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <NoteListItem key={note.id} note={note} />
             ))}
           </SidebarMenu>
         </SidebarGroup>

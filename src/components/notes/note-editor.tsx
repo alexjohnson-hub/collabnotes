@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useNotes } from "@/hooks/use-notes.tsx";
+import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
 import { EditorToolbar } from "./editor-toolbar";
 import { History, Trash2 } from "lucide-react";
@@ -45,9 +45,14 @@ export function NoteEditor() {
     if (activeNote) {
       setTitle(activeNote.title);
       setContent(activeNote.versions[0]?.content || "");
-      setLastSaved(new Date(activeNote.versions[0].timestamp).toLocaleString());
     }
   }, [activeNote]);
+  
+  React.useEffect(() => {
+    if (activeNote?.versions[0].timestamp) {
+        setLastSaved(new Date(activeNote.versions[0].timestamp).toLocaleString());
+    }
+  }, [activeNote?.versions[0].timestamp]);
 
   // Debounce title updates
   React.useEffect(() => {

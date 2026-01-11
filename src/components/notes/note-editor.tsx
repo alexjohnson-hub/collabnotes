@@ -32,55 +32,55 @@ import {
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
   const { toast } = useToast();
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  const [title, setTitle] = React.useState(activeNote?.title || "");
-  const [content, setContent] = React.useState(
-    activeNote?.versions[0]?.content || ""
-  );
+  const [title, setTitle] = React.useState("");
+  const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
-  const [lastSaved, setLastSaved] = React.useState("");
+  const [lastSaved, setLastSaved] = React.useState<string | null>(null);
 
   // Update local state when active note changes
   React.useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title);
-      setContent(activeNote.versions[0]?.content || "");
+      const currentVersion = activeNote.versions[0];
+      setContent(currentVersion?.content ?? "");
+      if (currentVersion?.timestamp) {
+        setLastSaved(new Date(currentVersion.timestamp).toLocaleString());
+      } else {
+        setLastSaved(null);
+      }
+    } else {
+        setTitle("");
+        setContent("");
+        setLastSaved(null);
     }
   }, [activeNote]);
-  
-  React.useEffect(() => {
-    if (activeNote?.versions[0].timestamp) {
-        setLastSaved(new Date(activeNote.versions[0].timestamp).toLocaleString());
-    }
-  }, [activeNote?.versions[0].timestamp]);
 
   // Debounce title updates
   React.useEffect(() => {
-    if (!activeNote) return;
+    if (!activeNote || title === activeNote.title) return;
     const handler = setTimeout(() => {
-      if (title !== activeNote.title) {
-        dispatch({
-          type: "UPDATE_NOTE_TITLE",
-          payload: { id: activeNote.id, title },
-        });
-      }
+      dispatch({
+        type: "UPDATE_NOTE_TITLE",
+        payload: { id: activeNote.id, title },
+      });
     }, 500);
     return () => clearTimeout(handler);
   }, [title, activeNote, dispatch]);
 
   // Debounce content updates (and create new version)
   React.useEffect(() => {
-    if (!activeNote) return;
+    if (!activeNote || content === activeNote.versions[0]?.content) return;
+    
     const handler = setTimeout(() => {
-      if (content !== activeNote.versions[0]?.content) {
         dispatch({
           type: "UPDATE_NOTE_CONTENT",
           payload: { id: activeNote.id, content },
         });
         toast({
             description: "Changes saved as a new version.",
-        })
-      }
+        });
     }, 1500);
     return () => clearTimeout(handler);
   }, [content, activeNote, dispatch, toast]);
@@ -95,6 +95,56 @@ export function NoteEditor() {
       });
     }
   };
+  
+  const handleFormat = (format: "bold" | "italic" | "ul" | "ol" | "code" | "p") => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = content.substring(start, end);
+
+    let newContent;
+    let newCursorPos = start;
+
+    switch (format) {
+      case "bold":
+        newContent = `${content.substring(0, start)}**${selectedText}**${content.substring(end)}`;
+        newCursorPos = end + 4;
+        break;
+      case "italic":
+        newContent = `${content.substring(0, start)}*${selectedText}*${content.substring(end)}`;
+        newCursorPos = end + 2;
+        break;
+      case "code":
+        newContent = `${content.substring(0, start)}\`\`\`\n${selectedText}\n\`\`\`${content.substring(end)}`;
+        newCursorPos = end + 7;
+        break;
+      case "ul":
+        newContent = `${content.substring(0, start)}* ${selectedText}${content.substring(end)}`;
+        newCursorPos = end + 2;
+        break;
+      case "ol":
+        newContent = `${content.substring(0, start)}1. ${selectedText}${content.substring(end)}`;
+        newCursorPos = end + 3;
+        break;
+      case "p":
+        newContent = `${content.substring(0, start)}\n${selectedText}\n${content.substring(end)}`;
+        newCursorPos = end + 2;
+        break;
+      default:
+        newContent = content;
+    }
+    
+    setContent(newContent);
+    
+    // Restore focus and cursor position
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
 
   if (!activeNote) {
     return null;
@@ -111,9 +161,7 @@ export function NoteEditor() {
                     className="text-2xl font-bold font-headline tracking-tight border-none shadow-none focus-visible:ring-0 p-0 h-auto"
                     placeholder="Untitled Note"
                 />
-                <CardDescription className="mt-1">
-                    {lastSaved ? `Last saved: ${lastSaved}` : '...'}
-                </CardDescription>
+                {lastSaved && <CardDescription className="mt-1">Last saved: {lastSaved}</CardDescription>}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
                 <Collaborators />
@@ -145,8 +193,9 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
-        <EditorToolbar />
+        <EditorToolbar onFormat={handleFormat} />
         <Textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Start writing your note here..."

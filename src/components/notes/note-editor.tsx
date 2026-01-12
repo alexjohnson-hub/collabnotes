@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -16,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { EditorToolbar } from "./editor-toolbar";
 import { History, Share2, Trash2 } from "lucide-react";
 import { VersionHistory } from "./version-history";
-import { Collaborators } from "./collaborators";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -192,7 +192,6 @@ export function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Collaborators />
             <Button variant="outline" size="icon" onClick={handleShare}>
               <Share2 className="h-4 w-4" />
               <span className="sr-only">Share Note</span>

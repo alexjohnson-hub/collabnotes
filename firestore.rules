@@ -1,19 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow a user to create and read their own profile document.
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
-    // Rules for the 'notes' collection
     match /notes/{noteId} {
-      // A user can query for notes they own.
-      allow list: if request.auth != null && request.auth.uid == request.query.get("where").ownerId;
+      // Allow a user to query for notes they own.
+      allow list: if request.auth != null;
       
-      // A user can get, update, or delete a note if they are the owner.
+      // Allow get, update, or delete a note if they are the owner.
       allow get, update, delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
       // An authenticated user can create a note if they are the owner.

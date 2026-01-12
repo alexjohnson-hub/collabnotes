@@ -44,11 +44,7 @@ type Action =
   | { type: "SELECT_NOTE"; payload: string | null }
   | { type: "UPDATE_NOTE_TITLE"; payload: { id: string; title: string } }
   | { type: "UPDATE_NOTE_CONTENT"; payload: { id: string; content: string } }
-  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } }
-  | {
-      type: "ADD_COLLABORATOR";
-      payload: { noteId: string; collaboratorId: string };
-    };
+  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } };
 
 const NotesContext = createContext<
   | (NotesState & {
@@ -194,10 +190,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
             const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
             setDocumentNonBlocking(doc(firestore, "notes", noteId), { versions: updatedVersions }, { merge: true });
         }
-        break;
-      }
-      // ADD_COLLABORATOR is no longer needed with the simplified rules
-      case "ADD_COLLABORATOR": {
         break;
       }
       default: 

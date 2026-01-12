@@ -15,8 +15,7 @@ service cloud.firestore {
                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
 
       // LIST: A user can list notes where they are the owner.
-      // This is implicitly handled by the queries in the app.
-      // We don't need a specific `list` rule if queries are secure.
+      allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
 
       // CREATE: A user can create a note if they are authenticated and they set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;

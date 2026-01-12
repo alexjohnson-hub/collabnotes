@@ -22,23 +22,13 @@ function NoteListItem({ note }: { note: Note }) {
   const [timeAgo, setTimeAgo] = React.useState("just now");
 
   React.useEffect(() => {
-    let date: Date | undefined;
     if (note.createdAt) {
-      // Check if it's a Firestore Timestamp and convert it
-      if (typeof (note.createdAt as any)?.toDate === 'function') {
-        date = (note.createdAt as any).toDate();
-      } 
-      // Check if it's already a Date object
-      else if (note.createdAt instanceof Date) {
-        date = note.createdAt;
-      }
-      
-      if (date && !isNaN(date.getTime())) {
-        setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
-        // Optional: set up an interval to update the time ago
-        const interval = setInterval(() => {
-          setTimeAgo(formatDistanceToNow(date!, { addSuffix: true }));
-        }, 60000); // Update every minute
+      // Ensure createdAt is a valid Date object before formatting
+      const date = (note.createdAt as any)?.toDate ? (note.createdAt as any).toDate() : note.createdAt;
+      if (date instanceof Date && !isNaN(date.getTime())) {
+        const update = () => setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
+        update();
+        const interval = setInterval(update, 60000); // Update every minute
         return () => clearInterval(interval);
       }
     }

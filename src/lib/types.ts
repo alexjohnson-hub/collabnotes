@@ -11,5 +11,5 @@ export interface Note {
   title: string;
   versions: NoteVersion[];
   createdAt: Date | Timestamp;
-  ownerId: string;
+  editors: string[];
 }

@@ -41,20 +41,9 @@
           "type": "string",
           "description": "Title of the note."
         },
-        "ownerId": {
-          "type": "string",
-          "description": "The user ID of the note's owner."
-        },
-        "collaboratorIds": {
+        "editors": {
           "type": "array",
-          "description": "User IDs of the note's collaborators.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "accessControl": {
-          "type": "array",
-          "description": "An array of user IDs that have access to this note (owner + collaborators). Used for efficient querying.",
+          "description": "User IDs of users who can edit this note.",
           "items": {
             "type": "string"
           }
@@ -75,10 +64,9 @@
       "required": [
         "id",
         "title",
-        "ownerId",
+        "editors",
         "createdAt",
-        "versions",
-        "accessControl"
+        "versions"
       ]
     },
     "NoteVersion": {

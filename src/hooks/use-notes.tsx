@@ -95,7 +95,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const notesQuery = useMemoFirebase(
     () =>
       user && firestore && !isUserLoading
-        ? query(collection(firestore, "notes"), where("ownerId", "==", user.uid))
+        ? query(collection(firestore, "notes"), where("editors", "array-contains", user.uid))
         : null,
     [firestore, user, isUserLoading]
   );
@@ -137,10 +137,9 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const newVersion: NoteVersion = { id: `v-${Date.now()}`, content: "", timestamp: new Date() };
         const newNote = {
           title: "Untitled Note",
-          ownerId: user.uid,
+          editors: [user.uid],
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
-          collaboratorIds: [],
         };
         addDocumentNonBlocking(collection(firestore, "notes"), newNote).then(
           (docRef) => {

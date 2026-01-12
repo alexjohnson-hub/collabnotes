@@ -19,22 +19,27 @@ import { useUser } from "@/firebase";
 
 function NoteListItem({ note }: { note: Note }) {
   const { activeNoteId, dispatch } = useNotes();
-  const [timeAgo, setTimeAgo] = React.useState("");
+  const [timeAgo, setTimeAgo] = React.useState("just now");
 
   React.useEffect(() => {
-    // Check if note.createdAt is a valid date or can be converted to one
+    let date: Date | undefined;
     if (note.createdAt) {
-      try {
-        const date =
-          note.createdAt instanceof Date
-            ? note.createdAt
-            : (note.createdAt as any).toDate();
-        if (!isNaN(date.getTime())) {
-          setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
-        }
-      } catch (error) {
-        // console.error("Error formatting date:", error);
-        setTimeAgo("a while ago");
+      // Check if it's a Firestore Timestamp and convert it
+      if (typeof (note.createdAt as any)?.toDate === 'function') {
+        date = (note.createdAt as any).toDate();
+      } 
+      // Check if it's already a Date object
+      else if (note.createdAt instanceof Date) {
+        date = note.createdAt;
+      }
+      
+      if (date && !isNaN(date.getTime())) {
+        setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
+        // Optional: set up an interval to update the time ago
+        const interval = setInterval(() => {
+          setTimeAgo(formatDistanceToNow(date!, { addSuffix: true }));
+        }, 60000); // Update every minute
+        return () => clearInterval(interval);
       }
     }
   }, [note.createdAt]);
@@ -51,7 +56,7 @@ function NoteListItem({ note }: { note: Note }) {
         isActive={note.id === activeNoteId}
         className="h-auto flex-col items-start p-2"
       >
-        <span className="font-medium text-sm w-full truncate">{note.title}</span>
+        <span className="font-medium text-sm w-full truncate">{note.title || "Untitled Note"}</span>
         <span className="text-xs text-sidebar-foreground/70 w-full">
           {timeAgo}
         </span>
@@ -77,7 +82,7 @@ export function NoteList({ searchQuery }: NoteListProps) {
       return notes;
     }
     return notes.filter((note) =>
-      note.title.toLowerCase().includes(searchQuery.toLowerCase())
+      (note.title || "Untitled Note").toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [notes, searchQuery]);
 

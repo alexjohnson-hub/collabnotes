@@ -2,170 +2,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Core Philosophy: This ruleset implements a user-centric security model where data is private by default.
-     * All primary data, such as notes and their versions, is nested under a user's unique ID (`/users/{userId}`).
-     * Access is granted based on two main principles: direct ownership and explicit collaboration.
-     *
-     * Data Structure:
-     * - `/users/{userId}`: Stores private user profile information.
-     * - `/users/{userId}/notes/{noteId}`: Stores notes owned by the user. This document contains a denormalized `collaboratorIds` array to grant access to other users without requiring slow and costly lookups.
-     * - `/users/{userId}/notes/{noteId}/versions/{versionId}`: A subcollection for note history, inheriting access rights from its parent note.
-     * - `/share_links/{shareLinkId}`: A top-level collection for managing shareable links.
-     *
-     * Key Security Decisions:
-     * - User data is strictly segregated. Users can only access their own data tree. Listing all users is disallowed.
-     * - Note access is granted to the document's owner and any user listed in its `collaboratorIds` array.
-     * - Only the note owner can manage collaborators or delete the note. Collaborators have permission to edit content.
-     * - Access to note versions requires checking the parent note's ownership and collaborator list.
-     *
-     * Denormalization for Authorization:
-     * To ensure fast and secure authorization, the `/users/{userId}/notes/{noteId}` documents must contain an `ownerId` field and a `collaboratorIds` array. This avoids cross-document `get()` calls when securing the note itself and enables a clear, performant security model.
-     *
-     * Structural Segregation:
-     * The separation of user-specific data into `/users/{userId}` subcollections provides strong, path-based security and prevents accidental data leakage in list queries.
-     */
-
-    // =============================================
-    // Helper Functions
-    // =============================================
-
-    /**
-     * Checks if the user is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * Checks if the authenticated user's UID matches the provided userId.
-     * This is the foundation of the user-ownership model.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    /**
-     * Checks if a document currently exists in Firestore.
-     * Essential for securing update and delete operations.
-     */
-    function isExistingDoc() {
-      return resource != null;
-    }
-
-    /**
-     * Checks if the user is the owner of a note, based on the note's data.
-     */
-    function isNoteOwner(noteData) {
-      return isSignedIn() && request.auth.uid == noteData.ownerId;
-    }
-
-    /**
-     * Checks if the user is a collaborator on a note, based on the note's data.
-     * The collaboratorIds field must exist and be a list.
-     */
-    function isNoteCollaborator(noteData) {
-      return isSignedIn() && request.auth.uid in noteData.collaboratorIds;
-    }
-    
-    /**
-     * Grants access if the user is either the owner or a collaborator.
-     */
-    function canAccessNote(noteData) {
-      return isNoteOwner(noteData) || isNoteCollaborator(noteData);
-    }
-    
-    /**
-     * Grants write access to a note.
-     * Owners can update anything.
-     * Collaborators can update content but cannot change ownership or the collaborators list.
-     */
-    function canUpdateNote(existingNoteData, newNoteData) {
-      // Owner can update everything.
-      let isOwnerUpdating = isNoteOwner(existingNoteData);
-      
-      // Collaborator can update if ownership and collaborators list are unchanged.
-      let isCollaboratorUpdating = isNoteCollaborator(existingNoteData) 
-          && newNoteData.ownerId == existingNoteData.ownerId
-          && newNoteData.collaboratorIds == existingNoteData.collaboratorIds;
-          
-      return isOwnerUpdating || isCollaboratorUpdating;
-    }
-
-    /**
-     * Checks if the user has read access to the parent note of a subcollection item (e.g., a version).
-     * Performs a `get()` call to the parent note document.
-     */
-    function canAccessParentNote(userId, noteId) {
-      let noteData = get(/databases/$(database)/documents/users/$(userId)/notes/$(noteId)).data;
-      return canAccessNote(noteData);
-    }
-    
-    // =============================================
-    // Collection Rules
-    // =============================================
-
-    /**
-     * @description Manages user profile data.
-     * @path /users/{userId}
-     * @allow (create) A new user can create their own profile document if their auth UID matches the document ID.
-     * @deny (create) A user cannot create a profile for another user's ID.
-     * @principle Restricts access to a user's own data tree.
-     */
+    // Users can only read and write to their own user document.
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // Users cannot list all other users.
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && isExistingDoc() && request.resource.data.id == resource.data.id;
-      allow delete: if isOwner(userId) && isExistingDoc();
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    /**
-     * @description Manages individual notes, which can be shared with collaborators.
-     * @path /users/{userId}/notes/{noteId}
-     * @allow (get) An authenticated user can read a note if they are the owner OR their UID is in the `collaboratorIds` array.
-     * @deny (get) A user who is not the owner or a collaborator cannot read the note.
-     * @principle Enforces a closed-collaborator model using a denormalized access list.
-     */
-    match /users/{userId}/notes/{noteId} {
-      allow get: if isSignedIn() && canAccessNote(resource.data);
-      allow list: if isOwner(userId); // Only the owner can list all their notes.
-      allow create: if isOwner(userId) && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isExistingDoc() && isSignedIn() && canUpdateNote(resource.data, request.resource.data);
-      allow delete: if isOwner(userId) && isExistingDoc();
-    }
-    
-    /**
-     * @description Manages historical versions of a note.
-     * @path /users/{userId}/notes/{noteId}/versions/{versionId}
-     * @allow (get) A user can read a note version if they can read the parent note.
-     * @deny (create) A user cannot create a version for a note they don't have access to.
-     * @principle Inherits authorization from the parent document via a `get()` call.
-     */
-    match /users/{userId}/notes/{noteId}/versions/{versionId} {
-      allow get: if isSignedIn() && canAccessParentNote(userId, noteId);
-      allow list: if isSignedIn() && canAccessParentNote(userId, noteId);
-      allow create: if isSignedIn() && canAccessParentNote(userId, noteId);
-      allow update: if isOwner(userId) && isExistingDoc(); // Only owner can modify history for simplicity.
-      allow delete: if isOwner(userId) && isExistingDoc(); // Only owner can delete history.
-    }
+    // Rules for the 'notes' collection
+    match /notes/{noteId} {
+      // READ: A user can read a note if they are authenticated and are either the owner
+      // or their UID is in the collaboratorIds list.
+      allow read: if request.auth != null && 
+                   (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
 
-    /**
-     * @description Manages shareable links to notes.
-     * @path /share_links/{shareLinkId}
-     * @allow (get) Any client can read a specific share link if they know its ID.
-     * @deny (list) No client can list all share links in the system.
-     * @principle Secures write operations with owner validation.
-     */
-    match /share_links/{shareLinkId} {
-      allow get: if true;
-      allow list: if false;
-      // CRITICAL: Cannot implement owner-only writes. The 'ShareLink' entity is missing an 'ownerId' field.
-      // To secure this, the 'ShareLink' document should contain the UID of the user who created it.
-      // The `create` rule would then perform a `get()` on the target note to ensure the creator owns it.
-      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      // LIST: A user can list notes where they are the owner.
+      // This is implicitly handled by the queries in the app.
+      // We don't need a specific `list` rule if queries are secure.
+
+      // CREATE: A user can create a note if they are authenticated and they set themselves as the owner.
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+
+      // UPDATE: A user can update a note if they are the owner.
+      // Collaborators can also update, but cannot change ownership or the collaborator list.
+      allow update: if request.auth != null && 
+                     ( (resource.data.ownerId == request.auth.uid) || 
+                       (request.auth.uid in resource.data.collaboratorIds && 
+                        request.resource.data.ownerId == resource.data.ownerId && 
+                        request.resource.data.collaboratorIds == resource.data.collaboratorIds) );
+
+      // DELETE: Only the owner can delete a note.
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
   }
 }

@@ -19,14 +19,26 @@ import { useUser } from "@/firebase";
 
 function NoteListItem({ note }: { note: Note }) {
   const { activeNoteId, dispatch } = useNotes();
-  const [timeAgo, setTimeAgo] = React.useState('');
+  const [timeAgo, setTimeAgo] = React.useState("");
 
   React.useEffect(() => {
+    // Check if note.createdAt is a valid date or can be converted to one
     if (note.createdAt) {
-      const date = (note.createdAt as any).toDate ? (note.createdAt as any).toDate() : note.createdAt;
-       setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
+      try {
+        const date =
+          note.createdAt instanceof Date
+            ? note.createdAt
+            : (note.createdAt as any).toDate();
+        if (!isNaN(date.getTime())) {
+          setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
+        }
+      } catch (error) {
+        // console.error("Error formatting date:", error);
+        setTimeAgo("a while ago");
+      }
     }
   }, [note.createdAt]);
+
 
   const handleSelectNote = (id: string) => {
     dispatch({ type: "SELECT_NOTE", payload: id });

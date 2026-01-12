@@ -8,6 +8,7 @@ service cloud.firestore {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
+    // Rules for the 'notes' collection
     match /notes/{noteId} {
       // READ (Single Doc): A user can read a note if they are the owner or a collaborator.
       allow read: if request.auth != null && 
@@ -16,8 +17,7 @@ service cloud.firestore {
       // CREATE: A user can create a note if they are authenticated and set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
 
-      // UPDATE: A user can update a note if they are the owner or a collaborator.
-      // Collaborators cannot change ownership or the collaborator list.
+      // UPDATE: The owner can update anything. Collaborators can update the note but not change ownership or the collaborator list.
       allow update: if request.auth != null && 
                      ( (resource.data.ownerId == request.auth.uid) || 
                        (request.auth.uid in resource.data.collaboratorIds && 
@@ -28,11 +28,12 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // LIST (Query): Rules for querying the 'notes' collection.
-    // These must be on a collection path, not a specific document path.
+    // LIST (Query): These rules must be on a collection path.
+    // They explicitly allow the two queries made by the application.
     match /notes/{document=**} {
         // Allow users to list notes where they are the owner.
-        allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
+        allow list: if request.auth != null && request.query.resource.__name__.path[5] == request.auth.uid;
+
         // Allow users to list notes where they are a collaborator.
         allow list: if request.auth != null && request.auth.uid in request.query.resource.data.collaboratorIds;
     }

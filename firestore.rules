@@ -12,7 +12,7 @@ service cloud.firestore {
     // Rules for the 'notes' collection
     match /notes/{noteId} {
       // Allow reading a note if it's public or if the user is an editor.
-      // This rule covers both direct gets and collection queries (list).
+      // This single rule correctly covers both direct gets and collection queries (list).
       allow read: if (resource.data.isPublic == true) || (request.auth.uid in resource.data.editors);
 
       // Allow creating a note if the user is in the new note's editors list.

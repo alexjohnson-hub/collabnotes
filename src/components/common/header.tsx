@@ -76,7 +76,7 @@ export function Header({ searchQuery, setSearchQuery }: HeaderProps) {
                 "dark:focus:bg-red-900/40 dark:focus:text-red-400"
               )}
             >
-              <LogOut className="mr-2" />
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -166,7 +166,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
           const newVersion: NoteVersion = {
             id: `v-${Date.now()}`,
             content: content,
-            timestamp: serverTimestamp() as any,
+            timestamp: new Date(),
           };
           const updatedVersions = [newVersion, ...note.versions].slice(0, 20); 
           setDocumentNonBlocking(
@@ -185,7 +185,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
            const newVersion: NoteVersion = {
               id: `v-${Date.now()}`,
               content: versionToRestore.content,
-              timestamp: serverTimestamp() as any,
+              timestamp: new Date(),
             };
             const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
             setDocumentNonBlocking(doc(firestore, "notes", noteId), { versions: updatedVersions }, { merge: true });

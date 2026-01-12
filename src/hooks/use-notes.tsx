@@ -62,7 +62,9 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
   switch (action.type) {
     case "SET_NOTES": {
         const newNotes = action.payload;
+        // If there's an active note, check if it still exists in the new list
         const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
+        // If not, fall back to the first note in the list, or null
         const newActiveNoteId = activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null);
         return {
           ...state,

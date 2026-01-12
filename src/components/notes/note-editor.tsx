@@ -30,6 +30,7 @@ import {
 import { Collaborators } from "./collaborators";
 import { EditorToolbar } from "./editor-toolbar";
 import { Separator } from "@/components/ui/separator";
+import ReactMarkdown from 'react-markdown';
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -39,6 +40,7 @@ export function NoteEditor() {
   const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
   const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
@@ -51,6 +53,8 @@ export function NoteEditor() {
       setContent("");
       setLastSaved(null);
     }
+    // When note changes, exit editing mode
+    setIsEditing(false); 
   }, [activeNote]);
 
   React.useEffect(() => {
@@ -73,20 +77,17 @@ export function NoteEditor() {
   }, [title, activeNote, dispatch]);
 
   React.useEffect(() => {
-    // Check if there is an active note and if the content has actually changed from the latest version.
-    if (!activeNote || content === activeNote.versions[0]?.content) return;
+    if (!activeNote || !isEditing || content === activeNote.versions[0]?.content) return;
   
-    // Debounce the content update.
     const handler = setTimeout(() => {
       dispatch({
         type: "UPDATE_NOTE_CONTENT",
         payload: { id: activeNote.id, content },
       });
-    }, 1500); // Wait for 1.5 seconds of inactivity before saving.
+    }, 1500); 
   
-    // Cleanup function to clear the timeout if the user continues typing.
     return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch]);
+  }, [content, activeNote, dispatch, isEditing]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -111,6 +112,11 @@ export function NoteEditor() {
       });
     }
   };
+
+  const handleContentBlur = () => {
+    setIsEditing(false);
+    // The useEffect for content update will handle saving.
+  }
 
   if (!activeNote) {
     return null;
@@ -173,23 +179,38 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       
-      <div className="px-6 pb-2">
-        <EditorToolbar
-          textAreaRef={textAreaRef}
-          content={content}
-          setContent={setContent}
-        />
-      </div>
-      <Separator />
+      {isEditing && (
+        <>
+        <div className="px-6 pb-2">
+            <EditorToolbar
+            textAreaRef={textAreaRef}
+            content={content}
+            setContent={setContent}
+            />
+        </div>
+        <Separator />
+        </>
+      )}
 
       <CardContent className="flex-1 flex flex-col pt-2 overflow-y-auto">
-        <Textarea
-          ref={textAreaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Start writing your masterpiece..."
-          className="flex-1 w-full h-full p-2 border-0 rounded-none resize-none focus-visible:ring-0"
-        />
+        {isEditing ? (
+            <Textarea
+            ref={textAreaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            onBlur={handleContentBlur}
+            placeholder="Start writing your masterpiece..."
+            className="flex-1 w-full h-full p-2 border-0 rounded-none resize-none focus-visible:ring-0"
+            autoFocus
+            />
+        ) : (
+            <div
+            onClick={() => setIsEditing(true)}
+            className="prose dark:prose-invert max-w-none w-full h-full p-2 cursor-text"
+            >
+            <ReactMarkdown>{content || <p className="text-muted-foreground">Start writing your masterpiece...</p>}</ReactMarkdown>
+            </div>
+        )}
       </CardContent>
       <CardFooter>
         <Collaborators />

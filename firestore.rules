@@ -9,16 +9,15 @@ service cloud.firestore {
     }
     
     match /notes/{noteId} {
-      // READ: A user can read a note if they are authenticated and are either the owner
-      // or their UID is in the collaboratorIds list.
+      // READ (Single Doc): A user can read a note if they are the owner or a collaborator.
       allow read: if request.auth != null && 
                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
 
-      // CREATE: A user can create a note if they are authenticated and they set themselves as the owner.
+      // CREATE: A user can create a note if they are authenticated and set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
 
-      // UPDATE: A user can update a note if they are the owner.
-      // Collaborators can also update, but cannot change ownership or the collaborator list.
+      // UPDATE: A user can update a note if they are the owner or a collaborator.
+      // Collaborators cannot change ownership or the collaborator list.
       allow update: if request.auth != null && 
                      ( (resource.data.ownerId == request.auth.uid) || 
                        (request.auth.uid in resource.data.collaboratorIds && 
@@ -29,12 +28,12 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // LIST rules for queries
-    // We need to match on the collection, not the document
+    // LIST (Query): Rules for querying the 'notes' collection.
+    // These must be on a collection path, not a specific document path.
     match /notes/{document=**} {
-        // Allow users to list notes they own
+        // Allow users to list notes where they are the owner.
         allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
-        // Allow users to list notes they are a collaborator on
+        // Allow users to list notes where they are a collaborator.
         allow list: if request.auth != null && request.auth.uid in request.query.resource.data.collaboratorIds;
     }
   }

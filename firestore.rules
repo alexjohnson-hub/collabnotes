@@ -20,7 +20,7 @@ service cloud.firestore {
 
       // A user can list notes if their UID is in the 'accessControl' array.
       // This rule supports the `where('accessControl', 'array-contains', auth.uid)` query.
-      allow list: if request.auth != null && request.auth.uid in request.query.filters.accessControl;
+      allow list: if request.auth != null && request.query.filters.accessControl.hasAny([request.auth.uid]);
 
       // An authenticated user can create a note if they are the owner and they are in the accessControl list.
       allow create: if request.auth != null 

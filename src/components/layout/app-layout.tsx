@@ -67,6 +67,7 @@ function LoginPrompt() {
   const auth = useAuth();
 
   const handleGoogleSignIn = async () => {
+    if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);

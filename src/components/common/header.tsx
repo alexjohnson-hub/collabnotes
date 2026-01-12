@@ -28,7 +28,9 @@ export function Header({ searchQuery, setSearchQuery }: HeaderProps) {
   const auth = useAuth();
 
   const handleSignOut = () => {
-    signOut(auth);
+    if (auth) {
+        signOut(auth);
+    }
   };
 
   return (
@@ -66,7 +68,7 @@ export function Header({ searchQuery, setSearchQuery }: HeaderProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end">
-            <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
+            <DropdownMenuLabel>{user?.displayName || user?.email || "My Account"}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleSignOut}

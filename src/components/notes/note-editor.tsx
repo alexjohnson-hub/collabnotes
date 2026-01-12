@@ -2,6 +2,7 @@
 "use client";
 
 import * as React from "react";
+import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -14,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
-import { EditorToolbar } from "./editor-toolbar";
 import { History, Share2, Trash2 } from "lucide-react";
 import { VersionHistory } from "./version-history";
 import {
@@ -28,28 +28,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import ReactMarkdown from 'react-markdown';
-import { Textarea } from "../ui/textarea";
 import { Collaborators } from "./collaborators";
+import 'react-quill/dist/quill.snow.css';
+
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{'list': 'ordered'}, {'list': 'bullet'}],
+    ['link', 'blockquote', 'code-block'],
+    [{ 'color': [] }, { 'background': [] }],
+    ['clean']
+  ],
+};
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
   const { toast } = useToast();
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  const [isEditing, setIsEditing] = React.useState(true);
 
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
 
-  // Update local state when active note changes
   React.useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title);
       const currentVersion = activeNote.versions[0];
       setContent(currentVersion?.content ?? "");
-      setIsEditing(true); // Default to editing mode when a new note is selected
     } else {
       setTitle("");
       setContent("");
@@ -59,13 +67,12 @@ export function NoteEditor() {
 
   React.useEffect(() => {
     if (activeNote?.versions[0]?.timestamp) {
-      setLastSaved(
-        new Date(activeNote.versions[0].timestamp as any).toLocaleString()
-      );
+      const timestamp = activeNote.versions[0].timestamp;
+      const date = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp as any);
+      setLastSaved(date.toLocaleString());
     }
   }, [activeNote?.versions[0]?.timestamp]);
 
-  // Debounce title updates
   React.useEffect(() => {
     if (!activeNote || title === activeNote.title) return;
     const handler = setTimeout(() => {
@@ -77,9 +84,8 @@ export function NoteEditor() {
     return () => clearTimeout(handler);
   }, [title, activeNote, dispatch]);
 
-  // Debounce content updates (and create new version)
   React.useEffect(() => {
-    if (!activeNote || !isEditing || content === activeNote.versions[0]?.content) return;
+    if (!activeNote || content === activeNote.versions[0]?.content) return;
 
     const handler = setTimeout(() => {
       dispatch({
@@ -91,7 +97,7 @@ export function NoteEditor() {
       });
     }, 1500);
     return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch, toast, isEditing]);
+  }, [content, activeNote, dispatch, toast]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -104,70 +110,8 @@ export function NoteEditor() {
     }
   };
 
-  const handleFormat = (
-    format: "bold" | "italic" | "ul" | "ol" | "code" | "p"
-  ) => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = content.substring(start, end);
-
-    let newContent;
-    let newCursorPos = start;
-
-    switch (format) {
-      case "bold":
-        newContent = `${content.substring(
-          0,
-          start
-        )}**${selectedText}**${content.substring(end)}`;
-        newCursorPos = end + 4;
-        break;
-      case "italic":
-        newContent = `${content.substring(
-          0,
-          start
-        )}*${selectedText}*${content.substring(end)}`;
-        newCursorPos = end + 2;
-        break;
-      case "code":
-        newContent = `${content.substring(
-          0,
-          start
-        )}\`\`\`\n${selectedText}\n\`\`\`${content.substring(end)}`;
-        newCursorPos = end + 7;
-        break;
-      case "ul":
-        newContent = `${content.substring(0, start)}* ${selectedText}${content.substring(end)}`;
-        newCursorPos = end + 2;
-        break;
-      case "ol":
-        newContent = `${content.substring(0, start)}1. ${selectedText}${content.substring(end)}`;
-        newCursorPos = end + 3;
-        break;
-      case "p":
-        newContent = `${content.substring(0, start)}\n${selectedText}\n${content.substring(end)}`;
-        newCursorPos = end + 2;
-        break;
-      default:
-        newContent = content;
-    }
-
-    setContent(newContent);
-    setIsEditing(true);
-
-    // Restore focus and cursor position
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newCursorPos, newCursorPos);
-    }, 0);
-  };
-
   const handleShare = () => {
     if (activeNote) {
-      // Mark the note as public when sharing
       dispatch({ type: "MAKE_NOTE_PUBLIC", payload: activeNote.id });
       
       const shareLink = `${window.location.origin}/note/${activeNote.id}`;
@@ -184,7 +128,7 @@ export function NoteEditor() {
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="h-full flex flex-col m-4 md:m-6">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -240,25 +184,14 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
-        <EditorToolbar onFormat={handleFormat} />
-        <div className="relative flex-1">
-            {isEditing ? (
-                <Textarea
-                    ref={textareaRef}
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    onBlur={() => setIsEditing(false)}
-                    placeholder="Start writing your note here... (Markdown is supported)"
-                    className="w-full h-full resize-none text-base absolute inset-0"
-                />
-            ) : (
-                <div 
-                    onClick={() => setIsEditing(true)} 
-                    className="prose dark:prose-invert max-w-none w-full h-full p-3 rounded-md border border-input cursor-text"
-                >
-                    {content ? <ReactMarkdown>{content}</ReactMarkdown> : <p className="text-muted-foreground">Start writing your note here...</p>}
-                </div>
-            )}
+        <div className="quill-editor">
+            <ReactQuill
+                theme="snow"
+                value={content}
+                onChange={setContent}
+                modules={quillModules}
+                placeholder="Start writing your masterpiece..."
+            />
         </div>
       </CardContent>
       <CardFooter>

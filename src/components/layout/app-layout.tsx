@@ -8,16 +8,15 @@ import {
 } from "@/components/ui/sidebar";
 import { Header } from "@/components/common/header";
 import { NoteList } from "@/components/notes/note-list";
-import { NoteEditor } from "@/components/notes/note-editor";
-import { useNotes } from "@/hooks/use-notes";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "../ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
+import { useNotes } from "@/hooks/use-notes";
 
-export function AppLayout() {
-  const { activeNote, dispatch } = useNotes();
+export function AppLayout({ children }: { children?: ReactNode }) {
+  const { dispatch } = useNotes();
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const searchParams = useSearchParams();
@@ -37,11 +36,11 @@ export function AppLayout() {
       </Sidebar>
       <SidebarInset>
         <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-        <main className="flex-1 p-4 md:p-6">
+        <main className="flex-1">
           {!user ? (
             <LoginPrompt />
-          ) : activeNote ? (
-            <NoteEditor key={activeNote.id} />
+          ) : children ? (
+             children
           ) : (
             <EmptyState />
           )}
@@ -53,7 +52,7 @@ export function AppLayout() {
 
 function EmptyState() {
   return (
-    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50">
+    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50 m-4 md:m-6">
       <div className="text-center">
         <h2 className="text-2xl font-semibold tracking-tight font-headline">No Note Selected</h2>
         <p className="mt-2 text-muted-foreground">
@@ -77,7 +76,7 @@ function LoginPrompt() {
   };
 
   return (
-    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50">
+    <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed bg-card/50 m-4 md:m-6">
       <div className="text-center">
         <h2 className="text-2xl font-semibold tracking-tight font-headline">Welcome to CollabNotes</h2>
         <p className="mt-2 text-muted-foreground">

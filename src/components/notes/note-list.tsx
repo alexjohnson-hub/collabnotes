@@ -11,18 +11,19 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { useNotes } from "@/hooks/use-notes";
-import { cn } from "@/lib/utils";
 import { FilePlus, Notebook } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import * as React from "react";
+import { Note } from "@/lib/types";
 
-
-function NoteListItem({ note }: { note: ReturnType<typeof useNotes>['notes'][0] }) {
+function NoteListItem({ note }: { note: Note }) {
   const { activeNoteId, dispatch } = useNotes();
   const [timeAgo, setTimeAgo] = React.useState('');
 
   React.useEffect(() => {
-    setTimeAgo(formatDistanceToNow(note.createdAt, { addSuffix: true }));
+    if (note.createdAt) {
+      setTimeAgo(formatDistanceToNow(new Date(note.createdAt as any), { addSuffix: true }));
+    }
   }, [note.createdAt]);
 
   const handleSelectNote = (id: string) => {

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,12 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { LogOut, Search, Settings, User } from "lucide-react";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { LogOut, Search, Settings, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { useAuth, useUser } from "@/firebase";
+import { getAuth, signOut } from "firebase/auth";
 
 export function Header() {
-  const userAvatar = PlaceHolderImages.find((img) => img.id === "user-avatar-1");
+  const { user } = useUser();
+  const auth = useAuth();
+
+  const handleSignOut = () => {
+    signOut(auth);
+  };
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6">
@@ -41,22 +46,20 @@ export function Header() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-9 w-9 rounded-full">
             <Avatar className="h-9 w-9">
-              {userAvatar && (
-                <AvatarImage
-                  src={userAvatar.imageUrl}
-                  alt={userAvatar.description}
-                  data-ai-hint={userAvatar.imageHint}
-                />
+              {user?.photoURL && (
+                <AvatarImage src={user.photoURL} alt={user.displayName || "User"} />
               )}
-              <AvatarFallback>U</AvatarFallback>
+              <AvatarFallback>
+                {user?.displayName?.[0] || user?.email?.[0] || "U"}
+              </AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className="w-56" align="end">
-          <DropdownMenuLabel>My Account</DropdownMenuLabel>
+          <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem>
-            <User className="mr-2" />
+            <UserIcon className="mr-2" />
             <span>Profile</span>
           </DropdownMenuItem>
           <DropdownMenuItem>
@@ -64,7 +67,7 @@ export function Header() {
             <span>Settings</span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSignOut}>
             <LogOut className="mr-2" />
             <span>Log out</span>
           </DropdownMenuItem>

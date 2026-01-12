@@ -1,24 +1,26 @@
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
       "description": "Represents a user of the CollabNotes application.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user.",
-          "format": "uuid"
+          "description": "Unique identifier for the user (matches Firebase Auth UID)."
         },
         "email": {
           "type": "string",
-          "description": "User's email address, used for authentication and identification.",
+          "description": "User's email address.",
           "format": "email"
         },
-        "googleDriveId": {
-          "type": "string",
-          "description": "User's Google Drive ID for synchronization."
+        "displayName": {
+            "type": "string",
+            "description": "User's display name."
+        },
+        "photoURL": {
+            "type": "string",
+            "description": "URL of the user's profile picture."
         }
       },
       "required": [
@@ -27,7 +29,6 @@
       ]
     },
     "Note": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Note",
       "type": "object",
       "description": "Represents a single note in the CollabNotes application.",
@@ -40,46 +41,46 @@
           "type": "string",
           "description": "Title of the note."
         },
-        "content": {
-          "type": "string",
-          "description": "Content of the note, supporting rich text formatting."
-        },
         "ownerId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N Note). The user ID of the note's owner."
+          "description": "The user ID of the note's owner."
         },
         "collaboratorIds": {
           "type": "array",
-          "description": "References to Users. (Relationship: Note N:N User). User IDs of the note's collaborators.",
+          "description": "User IDs of the note's collaborators.",
           "items": {
             "type": "string"
           }
+        },
+        "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the note was created."
+        },
+        "versions": {
+            "type": "array",
+            "description": "An array of note versions.",
+            "items": {
+                "$ref": "#/entities/NoteVersion"
+            }
         }
       },
       "required": [
         "id",
         "title",
-        "content",
-        "ownerId"
+        "ownerId",
+        "createdAt",
+        "versions"
       ]
     },
     "NoteVersion": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "NoteVersion",
       "type": "object",
-      "description": "Represents a specific version of a note, tracking changes over time.",
+      "description": "Represents a specific version of a note.",
       "properties": {
         "id": {
           "type": "string",
           "description": "Unique identifier for the note version."
-        },
-        "noteId": {
-          "type": "string",
-          "description": "Reference to Note. (Relationship: Note 1:N NoteVersion). The ID of the note this version belongs to."
-        },
-        "versionNumber": {
-          "type": "number",
-          "description": "Version number of the note."
         },
         "content": {
           "type": "string",
@@ -93,128 +94,32 @@
       },
       "required": [
         "id",
-        "noteId",
-        "versionNumber",
         "content",
         "timestamp"
-      ]
-    },
-    "ShareLink": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ShareLink",
-      "type": "object",
-      "description": "Represents a shareable link that grants access to a note.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the share link."
-        },
-        "noteId": {
-          "type": "string",
-          "description": "Reference to Note. (Relationship: Note 1:N ShareLink). The ID of the note this link provides access to."
-        },
-        "link": {
-          "type": "string",
-          "description": "The generated shareable link."
-        },
-        "expiryDate": {
-          "type": "string",
-          "description": "Optional expiry date for the link.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "noteId",
-        "link"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
-    "structure": [
+    "collections": [
       {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user data.  The 'userId' parameter is the user's unique ID.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
+        "name": "users",
+        "schema": {
+          "$ref": "#/entities/User"
+        },
+        "description": "Stores user profile information."
       },
       {
-        "path": "/users/{userId}/notes/{noteId}",
-        "definition": {
-          "entityName": "Note",
-          "schema": {
-            "$ref": "#/backend/entities/Note"
-          },
-          "description": "Stores notes owned by a specific user. Includes denormalized 'ownerId' and 'collaboratorIds' for authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user (owner)."
-            },
-            {
-              "name": "noteId",
-              "description": "The unique identifier of the note."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/notes/{noteId}/versions/{versionId}",
-        "definition": {
-          "entityName": "NoteVersion",
-          "schema": {
-            "$ref": "#/backend/entities/NoteVersion"
-          },
-          "description": "Stores versions of a specific note.  Inherits authorization from the parent note.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user (owner of the note)."
-            },
-            {
-              "name": "noteId",
-              "description": "The unique identifier of the note."
-            },
-            {
-              "name": "versionId",
-              "description": "The unique identifier of the note version."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/share_links/{shareLinkId}",
-        "definition": {
-          "entityName": "ShareLink",
-          "schema": {
-            "$ref": "#/backend/entities/ShareLink"
-          },
-          "description": "Stores shareable links. Allows access to specific notes. The 'shareLinkId' is a unique identifier for the share link.",
-          "params": [
-            {
-              "name": "shareLinkId",
-              "description": "The unique identifier of the share link."
-            }
-          ]
-        }
+        "name": "notes",
+        "schema": {
+          "$ref": "#/entities/Note"
+        },
+        "description": "Stores all notes for the application."
       }
-    ],
-    "reasoning": "The Firestore structure prioritizes authorization independence and supports secure list operations (QAPs). User data is stored under `/users/{userId}`. Notes are stored in a subcollection `/users/{userId}/notes/{noteId}` to establish clear ownership and facilitate simple security rules. Collaborators are managed via denormalization. The `Note` document includes the `ownerId` and `collaboratorIds` fields, copied from the parent `User` document to avoid `get()` calls in security rules and enable atomic operations.\n\nShareable links are stored in `/share_links/{shareLinkId}` with a reference to the associated note. This allows for independent management of share links and their access permissions.\n\nNote versions are stored in a subcollection `/users/{userId}/notes/{noteId}/versions/{versionId}` to maintain a history of changes. The structure ensures that only the owner and collaborators of a note can access its versions.\n\nThe structure also supports the creation of shareable links, stored in a separate collection `/share_links/{shareLinkId}` to allow management of shared links, which are created when a user shares a file to another user"
+    ]
   }
 }

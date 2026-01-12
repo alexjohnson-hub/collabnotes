@@ -1,17 +1,35 @@
-
 "use client";
 
 import * as React from "react";
 import {
   createContext,
   useContext,
-  useReducer,
   useEffect,
   useState,
   type ReactNode,
+  useReducer,
+  useMemo,
 } from "react";
-import { INITIAL_NOTES } from "@/lib/constants";
 import type { Note, NoteVersion } from "@/lib/types";
+import {
+  useCollection,
+  useFirebase,
+  useMemoFirebase,
+  useUser,
+} from "@/firebase";
+import {
+  addDocumentNonBlocking,
+  deleteDocumentNonBlocking,
+  setDocumentNonBlocking,
+} from "@/firebase/non-blocking-updates";
+import {
+  collection,
+  doc,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 
 interface NotesState {
   notes: Note[];
@@ -19,16 +37,17 @@ interface NotesState {
 }
 
 type Action =
-  | { type: "SET_INITIAL_STATE"; payload: NotesState }
+  | { type: "SET_NOTES"; payload: Note[] }
   | { type: "ADD_NOTE" }
   | { type: "DELETE_NOTE"; payload: string }
   | { type: "SELECT_NOTE"; payload: string | null }
   | { type: "UPDATE_NOTE_TITLE"; payload: { id: string; title: string } }
+  | { type: "UPDATE_NOTE_CONTENT"; payload: { id: string; content: string } }
+  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } }
   | {
-      type: "UPDATE_NOTE_CONTENT";
-      payload: { id: string; content: string };
-    }
-  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } };
+      type: "ADD_COLLABORATOR";
+      payload: { noteId: string; collaboratorId: string };
+    };
 
 const NotesContext = createContext<
   | (NotesState & {
@@ -40,140 +59,144 @@ const NotesContext = createContext<
 
 const notesReducer = (state: NotesState, action: Action): NotesState => {
   switch (action.type) {
-    case "SET_INITIAL_STATE":
-      return action.payload;
-    case "ADD_NOTE": {
-      const newNote: Note = {
-        id: `note-${Date.now()}`,
-        title: "Untitled Note",
-        createdAt: new Date(),
-        versions: [
-          { id: `v-${Date.now()}`, content: "", timestamp: new Date() },
-        ],
-      };
+    case "SET_NOTES":
       return {
         ...state,
-        notes: [newNote, ...state.notes],
-        activeNoteId: newNote.id,
+        notes: action.payload,
+        activeNoteId:
+          state.activeNoteId || (action.payload[0]?.id ?? null),
       };
-    }
-    case "DELETE_NOTE": {
-      const newNotes = state.notes.filter((note) => note.id !== action.payload);
-      let newActiveNoteId = state.activeNoteId;
-      if (state.activeNoteId === action.payload) {
-        newActiveNoteId = newNotes.length > 0 ? newNotes[0].id : null;
-      }
-      return {
-        ...state,
-        notes: newNotes,
-        activeNoteId: newActiveNoteId,
-      };
-    }
     case "SELECT_NOTE":
       return { ...state, activeNoteId: action.payload };
-    case "UPDATE_NOTE_TITLE": {
-      return {
-        ...state,
-        notes: state.notes.map((note) =>
-          note.id === action.payload.id
-            ? { ...note, title: action.payload.title }
-            : note
-        ),
-      };
-    }
-    case "UPDATE_NOTE_CONTENT": {
-      return {
-        ...state,
-        notes: state.notes.map((note) => {
-          if (note.id === action.payload.id) {
-            const newVersion: NoteVersion = {
-              id: `v-${Date.now()}`,
-              content: action.payload.content,
-              timestamp: new Date(),
-            };
-            const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
-            return { ...note, versions: updatedVersions };
-          }
-          return note;
-        }),
-      };
-    }
-    case "RESTORE_VERSION": {
-      return {
-        ...state,
-        notes: state.notes.map((note) => {
-          if (note.id === action.payload.noteId) {
-            const versionToRestore = note.versions.find(
-              (v) => v.id === action.payload.versionId
-            );
-            if (!versionToRestore) return note;
-
-            const newVersion: NoteVersion = {
-              id: `v-${Date.now()}`,
-              content: versionToRestore.content,
-              timestamp: new Date(),
-            };
-            const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
-            return { ...note, versions: updatedVersions };
-          }
-          return note;
-        }),
-      };
-    }
     default:
       return state;
   }
 };
 
-const getInitialState = (): NotesState => {
-    return { notes: INITIAL_NOTES, activeNoteId: INITIAL_NOTES[0]?.id || null };
-};
-
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(notesReducer, getInitialState());
-  const [isInitialized, setIsInitialized] = useState(false);
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+
+  const [state, dispatch] = useReducer(notesReducer, {
+    notes: [],
+    activeNoteId: null,
+  });
+
+  const notesQuery = useMemoFirebase(
+    () =>
+      user && firestore
+        ? query(
+            collection(firestore, "notes"),
+            where("ownerId", "==", user.uid),
+            orderBy("createdAt", "desc")
+          )
+        : null,
+    [firestore, user]
+  );
+
+  const { data: notes, isLoading } = useCollection<Note>(notesQuery);
 
   useEffect(() => {
-    try {
-      const item = window.localStorage.getItem("collabnotes_data");
-      if (item) {
-        const parsed = JSON.parse(item);
-        if (parsed.notes) {
-          parsed.notes.forEach((note: Note) => {
-            note.createdAt = new Date(note.createdAt);
-            note.versions.forEach((v: NoteVersion) => {
-              v.timestamp = new Date(v.timestamp);
-            });
-          });
-          dispatch({ type: "SET_INITIAL_STATE", payload: parsed });
+    if (notes) {
+      const processedNotes = notes.map(note => ({
+        ...note,
+        createdAt: (note.createdAt as any)?.toDate(),
+        versions: note.versions.map(v => ({
+            ...v,
+            timestamp: (v.timestamp as any)?.toDate(),
+        }))
+      }));
+      dispatch({ type: "SET_NOTES", payload: processedNotes });
+    }
+  }, [notes]);
+
+  const handleAction = (action: Action) => {
+    if (!user || !firestore) return;
+
+    const { type, payload } = action;
+
+    switch (type) {
+      case "ADD_NOTE": {
+        const newNote = {
+          title: "Untitled Note",
+          ownerId: user.uid,
+          collaboratorIds: [],
+          createdAt: serverTimestamp(),
+          versions: [
+            { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() },
+          ],
+        };
+        addDocumentNonBlocking(collection(firestore, "notes"), newNote).then(
+          (docRef) => {
+            if (docRef) {
+              dispatch({ type: "SELECT_NOTE", payload: docRef.id });
+            }
+          }
+        );
+        break;
+      }
+      case "DELETE_NOTE": {
+        deleteDocumentNonBlocking(doc(firestore, "notes", payload as string));
+        break;
+      }
+      case "UPDATE_NOTE_TITLE": {
+        const { id, title } = payload as { id: string; title: string };
+        setDocumentNonBlocking(doc(firestore, "notes", id), { title }, { merge: true });
+        break;
+      }
+      case "UPDATE_NOTE_CONTENT": {
+        const { id, content } = payload as { id: string; content: string };
+        const note = state.notes.find((n) => n.id === id);
+        if (note) {
+          const newVersion: NoteVersion = {
+            id: `v-${Date.now()}`,
+            content: content,
+            timestamp: serverTimestamp() as any,
+          };
+          const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
+          setDocumentNonBlocking(
+            doc(firestore, "notes", id),
+            { versions: updatedVersions },
+            { merge: true }
+          );
         }
+        break;
       }
-    } catch (error) {
-      console.error("Error reading from localStorage", error);
-    } finally {
-        setIsInitialized(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isInitialized) {
-      try {
-        const serializedState = JSON.stringify(state);
-        window.localStorage.setItem("collabnotes_data", serializedState);
-      } catch (error) {
-        console.error("Error writing to localStorage", error);
+      case "RESTORE_VERSION": {
+        const { noteId, versionId } = payload as { noteId: string, versionId: string };
+        const note = state.notes.find((n) => n.id === noteId);
+        const versionToRestore = note?.versions.find((v) => v.id === versionId);
+        if (note && versionToRestore) {
+           const newVersion: NoteVersion = {
+              id: `v-${Date.now()}`,
+              content: versionToRestore.content,
+              timestamp: serverTimestamp() as any,
+            };
+            const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
+            setDocumentNonBlocking(doc(firestore, "notes", noteId), { versions: updatedVersions }, { merge: true });
+        }
+        break;
+      }
+      case "ADD_COLLABORATOR": {
+        const { noteId, collaboratorId } = payload as {noteId: string, collaboratorId: string};
+        const note = state.notes.find((n) => n.id === noteId);
+        if (note) {
+            const newCollaborators = [...(note.collaboratorIds || []), collaboratorId];
+            setDocumentNonBlocking(doc(firestore, "notes", noteId), { collaboratorIds: newCollaborators }, { merge: true });
+        }
+        break;
+      }
+      case "SELECT_NOTE": {
+        dispatch(action);
+        break;
       }
     }
-  }, [state, isInitialized]);
+  };
 
-  const activeNote = state.notes.find((note) => note.id === state.activeNoteId);
-
-  if (!isInitialized) {
-      return null;
-  }
+  const activeNote = useMemo(() => state.notes.find((note) => note.id === state.activeNoteId), [state.notes, state.activeNoteId]);
 
   return (
-    <NotesContext.Provider value={{ ...state, dispatch, activeNote }}>
+    <NotesContext.Provider value={{ ...state, dispatch: handleAction, activeNote }}>
       {children}
     </NotesContext.Provider>
   );

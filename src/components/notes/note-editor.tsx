@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import ReactMarkdown from 'react-markdown';
 import { Textarea } from "../ui/textarea";
+import { Collaborators } from "./collaborators";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -259,6 +261,9 @@ export function NoteEditor() {
             )}
         </div>
       </CardContent>
+      <CardFooter>
+        <Collaborators />
+      </CardFooter>
       <VersionHistory isOpen={isHistoryOpen} onOpenChange={setHistoryOpen} />
     </Card>
   );

@@ -2,9 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      // Any authenticated user can read user profiles (e.g., for avatars)
+      // Any authenticated user can read user profiles.
       allow read: if request.auth != null;
-      // A user can only write to their own user document
+      // A user can only write to their own user document.
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
@@ -18,6 +18,7 @@ service cloud.firestore {
     }
 
     // This rule allows querying the 'notes' collection.
+    // It must be separate from the single-document match.
     match /notes/{document=**} {
       // Allow a user to list notes if the query filters for notes where their UID is in the 'editors' array.
       allow list: if request.auth != null && request.query.filters.editors.hasAny([request.auth.uid]);

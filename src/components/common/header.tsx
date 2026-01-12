@@ -12,11 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { LogOut, Search, Settings, User as UserIcon } from "lucide-react";
+import { LogOut, Search } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
-import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   searchQuery: string;
@@ -68,20 +68,14 @@ export function Header({ searchQuery, setSearchQuery }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/profile">
-                <UserIcon className="mr-2" />
-                <span>Profile</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2" />
-                <span>Settings</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut}>
+            <DropdownMenuItem
+              onClick={handleSignOut}
+              className={cn(
+                "text-red-600 dark:text-red-500",
+                "focus:bg-red-50 focus:text-red-700",
+                "dark:focus:bg-red-900/40 dark:focus:text-red-400"
+              )}
+            >
               <LogOut className="mr-2" />
               <span>Log out</span>
             </DropdownMenuItem>

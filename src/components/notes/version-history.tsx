@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -39,6 +40,11 @@ export function VersionHistory({ isOpen, onOpenChange }: VersionHistoryProps) {
     }
   };
 
+  const stripHtml = (html: string) => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || "";
+  }
+
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="sm:max-w-md">
@@ -57,7 +63,7 @@ export function VersionHistory({ isOpen, onOpenChange }: VersionHistoryProps) {
               <div key={version.id} className="p-4 rounded-lg border bg-card">
                 <div className="flex justify-between items-center mb-2">
                   <p className="font-semibold text-sm">
-                    {formatDistanceToNow(version.timestamp, {
+                    {formatDistanceToNow(new Date(version.timestamp as any), {
                       addSuffix: true,
                     })}
                   </p>
@@ -77,7 +83,7 @@ export function VersionHistory({ isOpen, onOpenChange }: VersionHistoryProps) {
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-3">
-                  {version.content || "Empty note"}
+                  {stripHtml(version.content) || "Empty note"}
                 </p>
               </div>
             ))}

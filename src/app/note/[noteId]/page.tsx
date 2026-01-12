@@ -1,13 +1,12 @@
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Note } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -53,9 +52,7 @@ function NoteReadOnlyView({ note }: { note: Note }) {
                      )}
                 </CardHeader>
                 <CardContent>
-                    <div className="prose dark:prose-invert max-w-none">
-                        <ReactMarkdown>{note.versions?.[0]?.content || ''}</ReactMarkdown>
-                    </div>
+                    <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: note.versions?.[0]?.content || '' }} />
                 </CardContent>
             </Card>
         </div>

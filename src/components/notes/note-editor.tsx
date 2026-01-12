@@ -2,8 +2,11 @@
 "use client";
 
 import * as React from "react";
-import "react-quill/dist/quill.snow.css";
-import dynamic from "next/dynamic";
+import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from '@tiptap/extension-placeholder';
+import CharacterCount from '@tiptap/extension-character-count';
+
 import {
   Card,
   CardContent,
@@ -15,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
-import { History, Share2, Trash2 } from "lucide-react";
+import { History, Share2, Trash2, Bold, Italic, Strikethrough, Heading1, Heading2, Pilcrow } from "lucide-react";
 import { VersionHistory } from "./version-history";
 import {
   AlertDialog,
@@ -29,29 +32,60 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
-
-const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
+import { Toggle } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
   const { toast } = useToast();
 
   const [title, setTitle] = React.useState("");
-  const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
+
+  const editor = useEditor({
+    extensions: [
+        StarterKit.configure({
+            // The CharacterCount extension registers its own storage, which is read by the component.
+            characterCount: {
+              limit: 20000,
+            },
+          }),
+        Placeholder.configure({
+        placeholder: 'Start writing your masterpiece...',
+      }),
+    ],
+    content: activeNote?.versions[0]?.content ?? "",
+    editorProps: {
+        attributes: {
+            class: 'prose dark:prose-invert focus:outline-none w-full max-w-none p-4',
+        },
+    },
+    onUpdate: ({ editor }) => {
+        if (!activeNote) return;
+
+        const content = editor.getHTML();
+        dispatch({
+            type: "UPDATE_NOTE_CONTENT",
+            payload: { id: activeNote.id, content },
+        });
+    },
+  });
 
   React.useEffect(() => {
     if (activeNote) {
       setTitle(activeNote.title);
       const currentVersion = activeNote.versions[0];
-      setContent(currentVersion?.content ?? "");
+      // Check if editor content is different from the active note's content
+      if (editor && editor.getHTML() !== currentVersion?.content) {
+        editor.commands.setContent(currentVersion?.content ?? "");
+      }
     } else {
       setTitle("");
-      setContent("");
-      setLastSaved(null);
+      editor?.commands.setContent("");
     }
-  }, [activeNote]);
+  }, [activeNote, editor]);
+
 
   React.useEffect(() => {
     if (activeNote?.versions[0]?.timestamp) {
@@ -74,18 +108,6 @@ export function NoteEditor() {
     return () => clearTimeout(handler);
   }, [title, activeNote, dispatch]);
 
-  React.useEffect(() => {
-    if (!activeNote || content === activeNote.versions[0]?.content) return;
-
-    const handler = setTimeout(() => {
-      dispatch({
-        type: "UPDATE_NOTE_CONTENT",
-        payload: { id: activeNote.id, content },
-      });
-    }, 1500);
-
-    return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -112,7 +134,7 @@ export function NoteEditor() {
     }
   };
 
-  if (!activeNote) {
+  if (!activeNote || !editor) {
     return null;
   }
 
@@ -173,48 +195,71 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       
-      <style jsx global>{`
-        .ql-container {
-          flex-grow: 1;
-          display: flex;
-          flex-direction: column;
-        }
-        .ql-editor {
-          flex-grow: 1;
-          overflow-y: auto;
-          font-size: 16px;
-          line-height: 1.6;
-        }
-        .ql-toolbar {
-          border-top-left-radius: var(--radius);
-          border-top-right-radius: var(--radius);
-        }
-        .ql-container.ql-snow {
-           border-bottom-left-radius: var(--radius);
-           border-bottom-right-radius: var(--radius);
-        }
-        .quill-editor {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-      `}</style>
+      {editor && <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="bg-background border border-border rounded-md shadow-lg p-1 flex gap-1">
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('bold')}
+          onPressedChange={() => editor.chain().focus().toggleBold().run()}
+        >
+          <Bold className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('italic')}
+          onPressedChange={() => editor.chain().focus().toggleItalic().run()}
+        >
+          <Italic className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('strike')}
+          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
+        >
+          <Strikethrough className="h-4 w-4" />
+        </Toggle>
+
+         <Separator orientation="vertical" className="h-auto mx-1" />
+
+        <Toggle
+          size="sm"
+          pressed={editor.isActive('heading', { level: 1 })}
+          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1 className="h-4 w-4" />
+        </Toggle>
+         <Toggle
+          size="sm"
+          pressed={editor.isActive('heading', { level: 2 })}
+          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2 className="h-4 w-4" />
+        </Toggle>
+         <Toggle
+          size="sm"
+          pressed={editor.isActive('paragraph')}
+          onPressedChange={() => editor.chain().focus().setParagraph().run()}
+        >
+          <Pilcrow className="h-4 w-4" />
+        </Toggle>
+      </BubbleMenu>}
+      
 
       <CardContent className="flex-1 flex flex-col pt-2 overflow-y-auto">
-        <div className="quill-editor">
-            <ReactQuill
-                theme="snow"
-                value={content}
-                onChange={setContent}
-                placeholder="Start writing your masterpiece..."
-                className="flex-1"
-                />
-        </div>
+        <EditorContent editor={editor} className="flex-1 overflow-y-auto" />
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-wrap gap-4 justify-between">
         <Collaborators />
+         {editor && (
+          <div className="text-xs text-muted-foreground">
+            {editor.storage.characterCount.characters()} characters
+          </div>
+        )}
       </CardFooter>
       <VersionHistory isOpen={isHistoryOpen} onOpenChange={setHistoryOpen} />
     </Card>
   );
+}
+
+function Separator({ orientation = 'horizontal', className }: { orientation?: 'horizontal' | 'vertical', className?: string }) {
+    return <div className={cn('bg-border', orientation === 'horizontal' ? 'h-[1px] w-full' : 'w-[1px] h-full', className)} />;
 }

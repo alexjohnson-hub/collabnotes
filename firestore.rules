@@ -3,17 +3,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Allow authenticated users to read user profiles for collaborator avatars/names
+    // Rules for the 'users' collection
     match /users/{userId} {
+      // Allow authenticated users to read any user profile (for collaborator avatars/names)
       allow get: if request.auth != null;
+      // Allow a user to read and write to their own profile document
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
     // Rules for the 'notes' collection
     match /notes/{noteId} {
       // READ (Single Doc): A user can read a note if they are the owner or a collaborator.
-      allow get: if request.auth != null && 
-                   (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
+      allow get: if request.auth != null && (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
 
       // CREATE: A user can create a note if they are authenticated and set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
@@ -27,12 +28,15 @@ service cloud.firestore {
 
       // DELETE: Only the owner can delete a note.
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+    }
 
-      // LIST (Query): Allow users to list notes where they are the owner.
-      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
-      
-      // LIST (Query): Allow users to list notes where they are a collaborator.
-      allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
+    // LIST (Query) rules for the 'notes' collection. These must be separate.
+    match /notes/{noteId} {
+        // Allow users to list notes where they are the owner.
+        allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+
+        // Allow users to list notes where they are a collaborator.
+        allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
     }
   }
 }

@@ -27,12 +27,11 @@ service cloud.firestore {
       // DELETE: Only the owner can delete a note.
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // LIST (Query): These rules must be on a document path, not the collection path.
-      // They explicitly allow the two queries made by the application.
-      // Allow users to list notes where they are the owner.
-      allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
-      // Allow users to list notes where they are a collaborator.
-      allow list: if request.auth != null && request.auth.uid in request.query.resource.data.collaboratorIds;
+      // LIST (Query): Allow users to list notes where they are the owner.
+      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+      
+      // LIST (Query): Allow users to list notes where they are a collaborator.
+      allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
     }
   }
 }

@@ -26,7 +26,6 @@ import {
 import {
   collection,
   doc,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -89,26 +88,26 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     activeNoteId: null,
   });
 
+  // Query for notes owned by the user.
   const ownedNotesQuery = useMemoFirebase(
     () =>
       user && firestore
         ? query(
             collection(firestore, "notes"),
-            where("ownerId", "==", user.uid),
-            orderBy("createdAt", "desc")
+            where("ownerId", "==", user.uid)
           )
         : null,
     [firestore, user]
   );
   const { data: ownedNotes, isLoading: isLoadingOwned } = useCollection<Note>(ownedNotesQuery);
 
+  // Query for notes where the user is a collaborator.
   const collaborativeNotesQuery = useMemoFirebase(
     () =>
       user && firestore
         ? query(
             collection(firestore, "notes"),
-            where("collaboratorIds", "array-contains", user.uid),
-            orderBy("createdAt", "desc")
+            where("collaboratorIds", "array-contains", user.uid)
           )
         : null,
     [firestore, user]
@@ -129,9 +128,8 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     // Create a map to remove duplicates, preferring the version from ownedNotes if IDs clash (unlikely).
     const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
     
-    // Sort all notes by creation date, descending.
+    // Sort all notes by creation date, descending, on the client side.
     uniqueNotes.sort((a, b) => {
-        // Firestore timestamps can be null or different types during updates. Handle defensively.
         const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any || 0);
         const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any || 0);
         return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);

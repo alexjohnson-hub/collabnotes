@@ -106,21 +106,17 @@
     ]
   },
   "firestore": {
-    "collections": [
-      {
-        "name": "users",
-        "schema": {
-          "$ref": "#/entities/User"
-        },
-        "description": "Stores user profile information."
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
       },
-      {
-        "name": "notes",
-        "schema": {
-          "$ref": "#/entities/Note"
-        },
-        "description": "Stores all notes for the application."
-      }
-    ]
+      "description": "Stores user profile information."
+    },
+    "/notes/{noteId}": {
+      "schema": {
+        "$ref": "#/entities/Note"
+      },
+      "description": "Stores all notes for the application."
+    }
   }
 }

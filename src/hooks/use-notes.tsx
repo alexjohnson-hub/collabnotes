@@ -6,10 +6,10 @@ import {
   createContext,
   useContext,
   useEffect,
-  useState,
   type ReactNode,
   useReducer,
   useMemo,
+  useCallback,
 } from "react";
 import type { Note, NoteVersion } from "@/lib/types";
 import {
@@ -62,13 +62,12 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
   switch (action.type) {
     case "SET_NOTES": {
         const newNotes = action.payload;
-        // If there's no active note, or the active note is no longer in the list,
-        // select the first note from the new list.
         const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
+        const newActiveNoteId = activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null);
         return {
           ...state,
           notes: newNotes,
-          activeNoteId: activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null),
+          activeNoteId: newActiveNoteId,
         };
       }
     case "SELECT_NOTE":
@@ -87,7 +86,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     activeNoteId: null,
   });
 
-  // Query for notes where the user is the owner
   const ownedNotesQuery = useMemoFirebase(
     () =>
       user && firestore
@@ -99,9 +97,8 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         : null,
     [firestore, user]
   );
-  const { data: ownedNotes } = useCollection<Note>(ownedNotesQuery);
+  const { data: ownedNotes, isLoading: isLoadingOwned } = useCollection<Note>(ownedNotesQuery);
 
-  // Query for notes where the user is a collaborator
   const collaborativeNotesQuery = useMemoFirebase(
     () =>
       user && firestore
@@ -113,10 +110,13 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         : null,
     [firestore, user]
   );
-  const { data: collaborativeNotes } = useCollection<Note>(collaborativeNotesQuery);
+  const { data: collaborativeNotes, isLoading: isLoadingCollaborative } = useCollection<Note>(collaborativeNotesQuery);
 
   useEffect(() => {
-    // Combine and deduplicate owned and collaborative notes
+    if (isLoadingOwned || isLoadingCollaborative) {
+        return;
+    }
+
     const allNotes = [
       ...(ownedNotes || []),
       ...(collaborativeNotes || []),
@@ -124,28 +124,27 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
     const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
     
-    // Sort all notes by creation date
     uniqueNotes.sort((a, b) => {
-        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : a.createdAt;
-        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : b.createdAt;
+        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any);
+        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
         return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
     });
 
     const processedNotes = uniqueNotes.map(note => ({
       ...note,
-      createdAt: (note.createdAt as any)?.toDate(),
+      createdAt: (note.createdAt as any)?.toDate ? (note.createdAt as any).toDate() : note.createdAt,
       versions: note.versions.map(v => ({
           ...v,
-          timestamp: (v.timestamp as any)?.toDate(),
+          timestamp: (v.timestamp as any)?.toDate ? (v.timestamp as any).toDate() : v.timestamp,
       }))
     }));
     
     dispatch({ type: "SET_NOTES", payload: processedNotes });
 
-  }, [ownedNotes, collaborativeNotes]);
+  }, [ownedNotes, collaborativeNotes, isLoadingOwned, isLoadingCollaborative]);
 
 
-  const handleAction = (action: Action) => {
+  const handleAction = useCallback((action: Action) => {
     if (!user || !firestore) return;
 
     const { type, payload } = action;
@@ -226,7 +225,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         break;
       }
     }
-  };
+  }, [firestore, user, state.notes]);
 
   const activeNote = useMemo(() => state.notes.find((note) => note.id === state.activeNoteId), [state.notes, state.activeNoteId]);
 
@@ -244,5 +243,3 @@ export const useNotes = () => {
   }
   return context;
 };
-
-    

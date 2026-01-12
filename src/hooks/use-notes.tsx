@@ -62,9 +62,7 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
   switch (action.type) {
     case "SET_NOTES": {
         const newNotes = action.payload;
-        // If there's an active note, check if it still exists in the new list
         const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
-        // If not, fall back to the first note in the list, or null
         const newActiveNoteId = activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null);
         return {
           ...state,
@@ -86,8 +84,8 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
     if (timestamp instanceof Date) {
         return timestamp;
     }
-    return new Date(); // Return current date as a fallback
-}
+    return new Date();
+};
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
@@ -101,7 +99,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const notesQuery = useMemoFirebase(
     () =>
       user && firestore
-        ? query(collection(firestore, "notes"), where("accessControl", "array-contains", user.uid))
+        ? query(collection(firestore, "notes"), where("ownerId", "==", user.uid))
         : null,
     [firestore, user]
   );
@@ -144,8 +142,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const newNote = {
           title: "Untitled Note",
           ownerId: user.uid,
-          collaboratorIds: [],
-          accessControl: [user.uid],
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
         };
@@ -200,17 +196,8 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         }
         break;
       }
+      // ADD_COLLABORATOR is no longer needed with the simplified rules
       case "ADD_COLLABORATOR": {
-        const { noteId, collaboratorId } = payload as {noteId: string, collaboratorId: string};
-        const note = state.notes.find((n) => n.id === noteId);
-        if (note) {
-            const newCollaborators = Array.from(new Set([...(note.collaboratorIds || []), collaboratorId]));
-            const newAccessControl = Array.from(new Set([note.ownerId, ...newCollaborators]));
-            setDocumentNonBlocking(doc(firestore, "notes", noteId), { 
-              collaboratorIds: newCollaborators,
-              accessControl: newAccessControl 
-            }, { merge: true });
-        }
         break;
       }
       default: 

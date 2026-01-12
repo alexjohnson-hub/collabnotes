@@ -12,6 +12,4 @@ export interface Note {
   versions: NoteVersion[];
   createdAt: Date | Timestamp;
   ownerId: string;
-  collaboratorIds?: string[];
-  accessControl: string[];
 }

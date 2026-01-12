@@ -63,6 +63,7 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
     case "SET_NOTES": {
         const newNotes = action.payload;
         const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
+        // If the active note doesn't exist anymore (e.g. deleted), select the first note or null.
         const newActiveNoteId = activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null);
         return {
           ...state,
@@ -73,6 +74,8 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
     case "SELECT_NOTE":
       return { ...state, activeNoteId: action.payload };
     default:
+      // For actions that trigger Firestore updates, we don't modify the state here.
+      // The state will be updated by the `useEffect` listening to `useCollection`.
       return state;
   }
 };
@@ -113,6 +116,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { data: collaborativeNotes, isLoading: isLoadingCollaborative } = useCollection<Note>(collaborativeNotesQuery);
 
   useEffect(() => {
+    // Only proceed when both queries are no longer loading
     if (isLoadingOwned || isLoadingCollaborative) {
         return;
     }
@@ -122,21 +126,25 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
       ...(collaborativeNotes || []),
     ];
 
+    // Create a map to remove duplicates, preferring the version from ownedNotes if IDs clash (unlikely).
     const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
     
+    // Sort all notes by creation date, descending.
     uniqueNotes.sort((a, b) => {
-        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any);
-        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any);
+        // Firestore timestamps can be null or different types during updates. Handle defensively.
+        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any || 0);
+        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any || 0);
         return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
     });
 
+    // Process timestamps inside notes and versions
     const processedNotes = uniqueNotes.map(note => ({
       ...note,
       createdAt: (note.createdAt as any)?.toDate ? (note.createdAt as any).toDate() : note.createdAt,
-      versions: note.versions.map(v => ({
+      versions: note.versions?.map(v => ({
           ...v,
           timestamp: (v.timestamp as any)?.toDate ? (v.timestamp as any).toDate() : v.timestamp,
-      }))
+      })) || [],
     }));
     
     dispatch({ type: "SET_NOTES", payload: processedNotes });
@@ -151,14 +159,13 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
     switch (type) {
       case "ADD_NOTE": {
+        const newVersion = { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() };
         const newNote = {
           title: "Untitled Note",
           ownerId: user.uid,
           collaboratorIds: [],
           createdAt: serverTimestamp(),
-          versions: [
-            { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() },
-          ],
+          versions: [ newVersion ],
         };
         addDocumentNonBlocking(collection(firestore, "notes"), newNote).then(
           (docRef) => {
@@ -187,7 +194,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
             content: content,
             timestamp: serverTimestamp() as any,
           };
-          const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
+          const updatedVersions = [newVersion, ...note.versions].slice(0, 20); // Keep last 20 versions
           setDocumentNonBlocking(
             doc(firestore, "notes", id),
             { versions: updatedVersions },
@@ -215,15 +222,18 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const { noteId, collaboratorId } = payload as {noteId: string, collaboratorId: string};
         const note = state.notes.find((n) => n.id === noteId);
         if (note) {
-            const newCollaborators = [...(note.collaboratorIds || []), collaboratorId];
+            const newCollaborators = Array.from(new Set([...(note.collaboratorIds || []), collaboratorId]));
             setDocumentNonBlocking(doc(firestore, "notes", noteId), { collaboratorIds: newCollaborators }, { merge: true });
         }
         break;
       }
       case "SELECT_NOTE": {
-        dispatch(action);
+        dispatch(action); // This is a local state change, no Firestore interaction needed
         break;
       }
+      // For other cases, the reducer handles them if they are local state changes
+      default: 
+        dispatch(action);
     }
   }, [firestore, user, state.notes]);
 

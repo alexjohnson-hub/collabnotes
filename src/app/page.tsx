@@ -3,9 +3,10 @@
 
 import { AppLayout } from "@/components/layout/app-layout";
 import { useUser } from "@/firebase";
+import { LoginPage } from "@/components/auth/login-page";
 
 export default function Home() {
-  const { isUserLoading } = useUser();
+  const { user, isUserLoading } = useUser();
 
   if (isUserLoading) {
     return (
@@ -13,6 +14,10 @@ export default function Home() {
         <div className="text-2xl font-semibold">Loading...</div>
       </div>
     );
+  }
+
+  if (!user) {
+    return <LoginPage />;
   }
 
   return <AppLayout />;

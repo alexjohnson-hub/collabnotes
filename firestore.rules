@@ -30,13 +30,12 @@ service cloud.firestore {
     }
 
     // LIST rules for queries
-    match /notes/{noteId} {
+    // We need to match on the collection, not the document
+    match /notes/{document=**} {
         // Allow users to list notes they own
         allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
         // Allow users to list notes they are a collaborator on
-        allow list: if request.auth != null && request.auth.uid in resource.data.collaboratorIds;
+        allow list: if request.auth != null && request.auth.uid in request.query.resource.data.collaboratorIds;
     }
   }
 }
-
-    

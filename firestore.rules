@@ -7,7 +7,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Allow authenticated users to read any user profile (for collaborator avatars/names)
       allow get: if request.auth != null;
-      // Allow a user to read and write to their own profile document
+      // Allow a user to create, read and write to their own profile document
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
@@ -30,12 +30,16 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // LIST (Query) rules for the 'notes' collection. These must be separate.
+    // LIST (Query) rules for the 'notes' collection. These must be separate and use request.query.where
     match /notes/{noteId} {
         // Allow users to list notes where they are the owner.
+        // This rule validates: where('ownerId', '==', uid)
         allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+    }
 
+    match /notes/{noteId} {
         // Allow users to list notes where they are a collaborator.
+        // This rule validates: where('collaboratorIds', 'array-contains', uid)
         allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
     }
   }

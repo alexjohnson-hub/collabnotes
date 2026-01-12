@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -15,6 +16,7 @@ import { LogOut, Search, Settings, User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
+import Link from "next/link";
 
 interface HeaderProps {
   searchQuery: string;
@@ -66,13 +68,17 @@ export function Header({ searchQuery, setSearchQuery }: HeaderProps) {
           <DropdownMenuContent className="w-56" align="end">
             <DropdownMenuLabel>{user?.displayName || "My Account"}</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <UserIcon className="mr-2" />
-              <span>Profile</span>
+            <DropdownMenuItem asChild>
+              <Link href="/profile">
+                <UserIcon className="mr-2" />
+                <span>Profile</span>
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2" />
-              <span>Settings</span>
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="mr-2" />
+                <span>Settings</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>

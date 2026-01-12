@@ -140,6 +140,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
           ownerId: user.uid,
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
+          accessControl: [user.uid]
         };
         addDocumentNonBlocking(collection(firestore, "notes"), newNote).then(
           (docRef) => {

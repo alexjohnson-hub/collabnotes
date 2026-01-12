@@ -2,15 +2,31 @@
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
-import { useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useState, useEffect } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { updateProfile } from 'firebase/auth';
 
 export default function ProfilePage() {
     const { user, isUserLoading } = useUser();
+    const auth = useAuth();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const [displayName, setDisplayName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (user) {
+            setDisplayName(user.displayName || '');
+        }
+    }, [user]);
 
     if (isUserLoading) {
         return (
@@ -26,6 +42,34 @@ export default function ProfilePage() {
         // This should ideally not be reached if routing is protected
         return <AppLayout />;
     }
+
+    const handleSaveChanges = async () => {
+        if (!user || !auth.currentUser) return;
+        setIsSaving(true);
+        try {
+            // Update Firebase Auth profile
+            await updateProfile(auth.currentUser, { displayName });
+            
+            // Update Firestore user document
+            const userRef = doc(firestore, 'users', user.uid);
+            await setDoc(userRef, { displayName }, { merge: true });
+
+            toast({
+                title: "Profile Updated",
+                description: "Your display name has been successfully updated.",
+            });
+        } catch (error) {
+            console.error("Error updating profile: ", error);
+            toast({
+                title: "Error",
+                description: "Failed to update profile. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     return (
         <AppLayout>
@@ -51,13 +95,15 @@ export default function ProfilePage() {
 
                         <div className="space-y-2">
                             <Label htmlFor="displayName">Display Name</Label>
-                            <Input id="displayName" defaultValue={user.displayName || ''} />
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                         </div>
                          <div className="space-y-2">
                             <Label htmlFor="email">Email Address</Label>
                             <Input id="email" type="email" defaultValue={user.email || ''} readOnly disabled />
                         </div>
-                        <Button>Save Changes</Button>
+                        <Button onClick={handleSaveChanges} disabled={isSaving}>
+                            {isSaving ? 'Saving...' : 'Save Changes'}
+                        </Button>
                     </CardContent>
                 </Card>
             </div>

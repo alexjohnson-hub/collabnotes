@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
@@ -28,11 +27,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import ReactMarkdown from 'react-markdown';
+import { Textarea } from "../ui/textarea";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
   const { toast } = useToast();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const [isEditing, setIsEditing] = React.useState(true);
 
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
@@ -45,6 +47,7 @@ export function NoteEditor() {
       setTitle(activeNote.title);
       const currentVersion = activeNote.versions[0];
       setContent(currentVersion?.content ?? "");
+      setIsEditing(true); // Default to editing mode when a new note is selected
     } else {
       setTitle("");
       setContent("");
@@ -74,7 +77,7 @@ export function NoteEditor() {
 
   // Debounce content updates (and create new version)
   React.useEffect(() => {
-    if (!activeNote || content === activeNote.versions[0]?.content) return;
+    if (!activeNote || !isEditing || content === activeNote.versions[0]?.content) return;
 
     const handler = setTimeout(() => {
       dispatch({
@@ -86,7 +89,7 @@ export function NoteEditor() {
       });
     }, 1500);
     return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch, toast]);
+  }, [content, activeNote, dispatch, toast, isEditing]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -151,6 +154,7 @@ export function NoteEditor() {
     }
 
     setContent(newContent);
+    setIsEditing(true);
 
     // Restore focus and cursor position
     setTimeout(() => {
@@ -232,13 +236,25 @@ export function NoteEditor() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
         <EditorToolbar onFormat={handleFormat} />
-        <Textarea
-          ref={textareaRef}
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="Start writing your note here..."
-          className="flex-1 resize-none text-base"
-        />
+        <div className="relative flex-1">
+            {isEditing ? (
+                <Textarea
+                    ref={textareaRef}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    onBlur={() => setIsEditing(false)}
+                    placeholder="Start writing your note here... (Markdown is supported)"
+                    className="w-full h-full resize-none text-base absolute inset-0"
+                />
+            ) : (
+                <div 
+                    onClick={() => setIsEditing(true)} 
+                    className="prose dark:prose-invert max-w-none w-full h-full p-3 rounded-md border border-input cursor-text"
+                >
+                    {content ? <ReactMarkdown>{content}</ReactMarkdown> : <p className="text-muted-foreground">Start writing your note here...</p>}
+                </div>
+            )}
+        </div>
       </CardContent>
       <VersionHistory isOpen={isHistoryOpen} onOpenChange={setHistoryOpen} />
     </Card>

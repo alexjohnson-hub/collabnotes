@@ -3,35 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Rule for listing notes. This must be outside the document-specific match.
-    // This allows a user to query the 'notes' collection if and only if
-    // they are filtering for notes where their UID is in the 'editors' array.
-    match /notes/{document=**} {
-        allow list: if request.auth != null && request.query.filters.editors.hasAny([request.auth.uid]);
-    }
-
     // Rules for individual user documents
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for individual note documents
+    // Rules for the 'notes' collection
     match /notes/{noteId} {
-      // Allow reading a specific note if it's public or if the user is an editor.
-      allow get: if (request.auth != null && request.auth.uid in resource.data.editors) || resource.data.isPublic == true;
+      // RULE 1: Allow a user to query for notes they are an editor of.
+      // This is the key fix. The 'list' rule must be in the document match block
+      // for Firestore to properly evaluate it against the query's filter.
+      allow list: if request.auth != null && request.auth.uid in request.query.where.editors.value;
+
+      // RULE 2: Allow reading a single note if it's public or if the user is an editor.
+      allow get: if (resource.data.isPublic == true) || (request.auth != null && request.auth.uid in resource.data.editors);
       
-      // Allow creating a note if the user is in the new note's editors list.
+      // RULE 3: Allow creating a note if the user is in the new note's editors list.
       allow create: if request.auth != null && request.auth.uid in request.resource.data.editors;
 
-      // Allow updating a note if the user is already an editor,
-      // OR if the note is public and they are adding themselves as an editor.
+      // RULE 4: Allow updating a note if the user is already an editor,
+      // OR if the note is public and the logged-in user is adding themselves as an editor.
       allow update: if request.auth != null && (
         (request.auth.uid in resource.data.editors) || 
-        (resource.data.isPublic == true && request.auth.uid in request.resource.data.editors)
+        (resource.data.isPublic == true && request.auth.uid in request.resource.data.editors && !(request.auth.uid in resource.data.editors))
       );
 
-      // Allow deleting a note only if the user is an editor.
+      // RULE 5: Allow deleting a note only if the user is an editor.
       allow delete: if request.auth != null && request.auth.uid in resource.data.editors;
     }
   }

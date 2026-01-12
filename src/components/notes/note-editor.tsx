@@ -2,7 +2,6 @@
 "use client";
 
 import * as React from "react";
-import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -29,20 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
-import 'react-quill/dist/quill.snow.css';
-
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{'list': 'ordered'}, {'list': 'bullet'}],
-    ['link', 'blockquote', 'code-block'],
-    [{ 'color': [] }, { 'background': [] }],
-    ['clean']
-  ],
-};
+import { Textarea } from "../ui/textarea";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -184,15 +170,12 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
-        <div className="quill-editor">
-            <ReactQuill
-                theme="snow"
-                value={content}
-                onChange={setContent}
-                modules={quillModules}
-                placeholder="Start writing your masterpiece..."
-            />
-        </div>
+        <Textarea
+          className="flex-1 text-base resize-none border-0 focus-visible:ring-0"
+          placeholder="Start writing your masterpiece..."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+        />
       </CardContent>
       <CardFooter>
         <Collaborators />

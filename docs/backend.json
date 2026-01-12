@@ -52,6 +52,13 @@
             "type": "string"
           }
         },
+        "accessControl": {
+          "type": "array",
+          "description": "An array of user IDs that have access to this note (owner + collaborators). Used for efficient querying.",
+          "items": {
+            "type": "string"
+          }
+        },
         "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -70,7 +77,8 @@
         "title",
         "ownerId",
         "createdAt",
-        "versions"
+        "versions",
+        "accessControl"
       ]
     },
     "NoteVersion": {

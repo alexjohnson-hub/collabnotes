@@ -13,4 +13,5 @@ export interface Note {
   createdAt: Date | Timestamp;
   ownerId: string;
   collaboratorIds?: string[];
+  accessControl: string[];
 }

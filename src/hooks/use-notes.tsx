@@ -84,7 +84,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
     if (timestamp instanceof Date) {
         return timestamp;
     }
-    return new Date(0); // Return epoch if invalid
+    return new Date(); // Return current date as a fallback
 }
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
@@ -96,51 +96,28 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     activeNoteId: null,
   });
 
-  const ownedNotesQuery = useMemoFirebase(
+  const notesQuery = useMemoFirebase(
     () =>
       user && firestore
-        ? query(collection(firestore, "notes"), where("ownerId", "==", user.uid))
+        ? query(collection(firestore, "notes"), where("accessControl", "array-contains", user.uid))
         : null,
     [firestore, user]
   );
-  const { data: ownedNotes, isLoading: isLoadingOwned } = useCollection<Note>(ownedNotesQuery);
-
-  const collaborativeNotesQuery = useMemoFirebase(
-    () =>
-      user && firestore
-        ? query(
-            collection(firestore, "notes"),
-            where("collaboratorIds", "array-contains", user.uid)
-          )
-        : null,
-    [firestore, user]
-  );
-  const { data: collaborativeNotes, isLoading: isLoadingCollaborative } = useCollection<Note>(collaborativeNotesQuery);
+  
+  const { data: notesData, isLoading } = useCollection<Note>(notesQuery);
 
   useEffect(() => {
-    if (isLoadingOwned || isLoadingCollaborative) {
+    if (isLoading || !notesData) {
         return;
     }
 
-    const allNotesRaw = [
-      ...(ownedNotes || []),
-      ...(collaborativeNotes || []),
-    ];
-
-    const uniqueNotesMap = new Map<string, Note>();
-    allNotesRaw.forEach(note => {
-        uniqueNotesMap.set(note.id, note);
-    });
-
-    const uniqueNotes = Array.from(uniqueNotesMap.values());
-    
-    uniqueNotes.sort((a, b) => {
+    const sortedNotes = [...notesData].sort((a, b) => {
         const dateA = toDate(a.createdAt);
         const dateB = toDate(b.createdAt);
         return dateB.getTime() - dateA.getTime();
     });
-
-    const processedNotes = uniqueNotes.map(note => ({
+    
+    const processedNotes = sortedNotes.map(note => ({
       ...note,
       createdAt: toDate(note.createdAt),
       versions: (note.versions || []).map(v => ({
@@ -151,7 +128,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     
     dispatch({ type: "SET_NOTES", payload: processedNotes });
 
-  }, [ownedNotes, collaborativeNotes, isLoadingOwned, isLoadingCollaborative]);
+  }, [notesData, isLoading]);
 
 
   const handleAction = useCallback((action: Action) => {
@@ -166,6 +143,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
           title: "Untitled Note",
           ownerId: user.uid,
           collaboratorIds: [],
+          accessControl: [user.uid],
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
         };
@@ -225,7 +203,11 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const note = state.notes.find((n) => n.id === noteId);
         if (note) {
             const newCollaborators = Array.from(new Set([...(note.collaboratorIds || []), collaboratorId]));
-            setDocumentNonBlocking(doc(firestore, "notes", noteId), { collaboratorIds: newCollaborators }, { merge: true });
+            const newAccessControl = Array.from(new Set([note.ownerId, ...newCollaborators]));
+            setDocumentNonBlocking(doc(firestore, "notes", noteId), { 
+              collaboratorIds: newCollaborators,
+              accessControl: newAccessControl 
+            }, { merge: true });
         }
         break;
       }

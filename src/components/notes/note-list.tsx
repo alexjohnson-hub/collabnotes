@@ -15,6 +15,7 @@ import { FilePlus, Notebook } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import * as React from "react";
 import { Note } from "@/lib/types";
+import { useUser } from "@/firebase";
 
 function NoteListItem({ note }: { note: Note }) {
   const { activeNoteId, dispatch } = useNotes();
@@ -22,7 +23,8 @@ function NoteListItem({ note }: { note: Note }) {
 
   React.useEffect(() => {
     if (note.createdAt) {
-      setTimeAgo(formatDistanceToNow(new Date(note.createdAt as any), { addSuffix: true }));
+      const date = (note.createdAt as any).toDate ? (note.createdAt as any).toDate() : note.createdAt;
+       setTimeAgo(formatDistanceToNow(date, { addSuffix: true }));
     }
   }, [note.createdAt]);
 
@@ -46,12 +48,30 @@ function NoteListItem({ note }: { note: Note }) {
   )
 }
 
-export function NoteList() {
+interface NoteListProps {
+  searchQuery: string;
+}
+
+export function NoteList({ searchQuery }: NoteListProps) {
   const { notes, dispatch } = useNotes();
+  const { user } = useUser();
 
   const handleNewNote = () => {
     dispatch({ type: "ADD_NOTE" });
   };
+
+  const filteredNotes = React.useMemo(() => {
+    if (!searchQuery) {
+      return notes;
+    }
+    return notes.filter((note) =>
+      note.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [notes, searchQuery]);
+
+  if (!user) {
+    return null;
+  }
 
 
   return (
@@ -69,7 +89,7 @@ export function NoteList() {
             <span className="ml-2">All Notes</span>
           </SidebarGroupLabel>
           <SidebarMenu>
-            {notes.map((note) => (
+            {filteredNotes.map((note) => (
               <NoteListItem key={note.id} note={note} />
             ))}
           </SidebarMenu>

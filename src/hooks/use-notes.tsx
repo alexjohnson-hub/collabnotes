@@ -84,7 +84,6 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
     return new Date();
 };
 
-const DEBOUNCE_DELAY = 1500; // ms
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
@@ -94,8 +93,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     notes: [],
     activeNoteId: null,
   });
-
-  const contentUpdateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const notesQuery = useMemoFirebase(
     () =>
@@ -137,10 +134,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
     const { type, payload } = action;
 
-    if (contentUpdateTimeoutRef.current) {
-        clearTimeout(contentUpdateTimeoutRef.current);
-    }
-
     switch (type) {
       case "ADD_NOTE": {
         const newVersion: NoteVersion = { id: `v-${Date.now()}`, content: "", timestamp: new Date() };
@@ -173,19 +166,17 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const { id, content } = payload as { id: string; content: string };
         const note = state.notes.find((n) => n.id === id);
 
-        if (note && content !== note.versions[0]?.content) {
-            contentUpdateTimeoutRef.current = setTimeout(() => {
-                const newVersion: NoteVersion = {
-                    id: `v-${Date.now()}`,
-                    content: content,
-                    timestamp: new Date(),
-                };
-                const updatedVersions = [newVersion, ...note.versions].slice(0, 20); 
-                updateDocumentNonBlocking(
-                    doc(firestore, "notes", id),
-                    { versions: updatedVersions }
-                );
-            }, DEBOUNCE_DELAY);
+        if (note) {
+            const newVersion: NoteVersion = {
+                id: `v-${Date.now()}`,
+                content: content,
+                timestamp: new Date(),
+            };
+            const updatedVersions = [newVersion, ...note.versions].slice(0, 20); 
+            updateDocumentNonBlocking(
+                doc(firestore, "notes", id),
+                { versions: updatedVersions }
+            );
         }
         break;
       }

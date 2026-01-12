@@ -61,15 +61,6 @@ export function NoteEditor() {
             class: `prose dark:prose-invert focus:outline-none w-full max-w-none p-4 ${isEditing ? '' : 'min-h-[200px] border-none rounded-lg'}`,
         },
     },
-    onUpdate: ({ editor }) => {
-        if (!activeNote) return;
-
-        const content = editor.getHTML();
-        dispatch({
-            type: "UPDATE_NOTE_CONTENT",
-            payload: { id: activeNote.id, content },
-        });
-    },
   });
 
   React.useEffect(() => {
@@ -104,16 +95,34 @@ export function NoteEditor() {
     }
   }, [activeNote?.versions[0]?.timestamp]);
 
-  React.useEffect(() => {
-    if (!activeNote || title === activeNote.title) return;
-    const handler = setTimeout(() => {
-      dispatch({
-        type: "UPDATE_NOTE_TITLE",
-        payload: { id: activeNote.id, title },
-      });
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [title, activeNote, dispatch]);
+
+  const handleSave = () => {
+    if (!activeNote || !editor) return;
+
+    // 1. Save title
+    if (title !== activeNote.title) {
+        dispatch({
+            type: "UPDATE_NOTE_TITLE",
+            payload: { id: activeNote.id, title },
+        });
+    }
+
+    // 2. Save content
+    const content = editor.getHTML();
+     if (content !== activeNote.versions[0]?.content) {
+        dispatch({
+            type: "UPDATE_NOTE_CONTENT",
+            payload: { id: activeNote.id, content },
+        });
+     }
+    
+    // 3. Exit edit mode
+    setIsEditing(false);
+    toast({
+      title: "Note Saved",
+      description: `"${title}" has been saved.`,
+    });
+  }
 
 
   const handleDelete = () => {
@@ -141,6 +150,14 @@ export function NoteEditor() {
     }
   };
 
+  const handleEditToggle = () => {
+    if (isEditing) {
+        handleSave();
+    } else {
+        setIsEditing(true);
+    }
+  }
+
   if (!activeNote || !editor) {
     return null;
   }
@@ -164,9 +181,9 @@ export function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <Button variant="outline" size="icon" onClick={() => setIsEditing(!isEditing)}>
+            <Button variant="outline" size="icon" onClick={handleEditToggle}>
               {isEditing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-              <span className="sr-only">{isEditing ? "Done Editing" : "Edit Note"}</span>
+              <span className="sr-only">{isEditing ? "Save Note" : "Edit Note"}</span>
             </Button>
             <Button variant="outline" size="icon" onClick={handleShare}>
               <Share2 className="h-4 w-4" />
@@ -219,7 +236,7 @@ export function NoteEditor() {
       </CardContent>
       <CardFooter className="flex-wrap gap-4 justify-between">
         <Collaborators />
-        {editor?.storage.characterCount && (
+        {editor.storage.characterCount && (
           <div className="text-xs text-muted-foreground">
             {editor.storage.characterCount.characters()} characters
           </div>

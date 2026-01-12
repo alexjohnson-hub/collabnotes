@@ -45,14 +45,12 @@ export function NoteEditor() {
 
   const editor = useEditor({
     extensions: [
-        StarterKit.configure({
-            // The CharacterCount extension registers its own storage, which is read by the component.
-            characterCount: {
-              limit: 20000,
-            },
-          }),
-        Placeholder.configure({
+      StarterKit,
+      Placeholder.configure({
         placeholder: 'Start writing your masterpiece...',
+      }),
+      CharacterCount.configure({
+        limit: 20000,
       }),
     ],
     content: activeNote?.versions[0]?.content ?? "",
@@ -249,7 +247,7 @@ export function NoteEditor() {
       </CardContent>
       <CardFooter className="flex-wrap gap-4 justify-between">
         <Collaborators />
-         {editor && (
+         {editor?.storage.characterCount && (
           <div className="text-xs text-muted-foreground">
             {editor.storage.characterCount.characters()} characters
           </div>

@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
-import { History, Share2, Trash2, Bold, Italic, Strikethrough, Heading1, Heading2, Pilcrow } from "lucide-react";
+import { History, Share2, Trash2 } from "lucide-react";
 import { VersionHistory } from "./version-history";
 import {
   AlertDialog,
@@ -32,8 +32,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
-import { Toggle } from "@/components/ui/toggle";
-import { cn } from "@/lib/utils";
+import { EditorToolbar } from "./editor-toolbar";
+import { Separator } from "../ui/separator";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -193,61 +193,17 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       
-      {editor && <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="bg-background border border-border rounded-md shadow-lg p-1 flex gap-1">
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('bold')}
-          onPressedChange={() => editor.chain().focus().toggleBold().run()}
-        >
-          <Bold className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('italic')}
-          onPressedChange={() => editor.chain().focus().toggleItalic().run()}
-        >
-          <Italic className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('strike')}
-          onPressedChange={() => editor.chain().focus().toggleStrike().run()}
-        >
-          <Strikethrough className="h-4 w-4" />
-        </Toggle>
+      <div className="px-4 pb-2">
+        <EditorToolbar editor={editor} />
+        <Separator />
+      </div>
 
-         <Separator orientation="vertical" className="h-auto mx-1" />
-
-        <Toggle
-          size="sm"
-          pressed={editor.isActive('heading', { level: 1 })}
-          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-        >
-          <Heading1 className="h-4 w-4" />
-        </Toggle>
-         <Toggle
-          size="sm"
-          pressed={editor.isActive('heading', { level: 2 })}
-          onPressedChange={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-        >
-          <Heading2 className="h-4 w-4" />
-        </Toggle>
-         <Toggle
-          size="sm"
-          pressed={editor.isActive('paragraph')}
-          onPressedChange={() => editor.chain().focus().setParagraph().run()}
-        >
-          <Pilcrow className="h-4 w-4" />
-        </Toggle>
-      </BubbleMenu>}
-      
-
-      <CardContent className="flex-1 flex flex-col pt-2 overflow-y-auto">
+      <CardContent className="flex-1 flex flex-col pt-0 overflow-y-auto">
         <EditorContent editor={editor} className="flex-1 overflow-y-auto" />
       </CardContent>
       <CardFooter className="flex-wrap gap-4 justify-between">
         <Collaborators />
-         {editor?.storage.characterCount && (
+        {editor?.storage.characterCount && (
           <div className="text-xs text-muted-foreground">
             {editor.storage.characterCount.characters()} characters
           </div>
@@ -256,8 +212,4 @@ export function NoteEditor() {
       <VersionHistory isOpen={isHistoryOpen} onOpenChange={setHistoryOpen} />
     </Card>
   );
-}
-
-function Separator({ orientation = 'horizontal', className }: { orientation?: 'horizontal' | 'vertical', className?: string }) {
-    return <div className={cn('bg-border', orientation === 'horizontal' ? 'h-[1px] w-full' : 'w-[1px] h-full', className)} />;
 }

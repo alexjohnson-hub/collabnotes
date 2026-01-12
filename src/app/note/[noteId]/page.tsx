@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc, DocumentReference, DocumentData, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Note } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +16,7 @@ function NoteReadOnlyView({ note }: { note: Note }) {
     const auth = useAuth();
 
     const handleGoogleSignIn = async () => {
+        if (!auth) return;
         const provider = new GoogleAuthProvider();
         try {
             await signInWithPopup(auth, provider);
@@ -67,34 +68,35 @@ export default function SharedNotePage({ params }: { params: { noteId: string } 
   const router = useRouter();
 
   const noteRef = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'notes', params.noteId) : null),
-    [firestore, params.noteId]
+    () => (firestore && !isUserLoading ? doc(firestore, 'notes', params.noteId) : null),
+    [firestore, params.noteId, isUserLoading]
   );
   
   const { data: note, isLoading: isNoteLoading } = useDoc<Note>(noteRef);
 
   useEffect(() => {
-    // Wait for auth and note data to be resolved
-    if (isUserLoading || isNoteLoading || !noteRef) {
+    // This effect runs when auth state or note data changes.
+    // It is responsible for redirecting or adding the user as an editor.
+    if (!noteRef || !note || isUserLoading) {
       return; 
     }
 
-    // If user is logged in, attempt to give them access.
-    if (user && note) {
+    if (user) {
+      // User is logged in
       const isEditor = note.editors.includes(user.uid);
       
-      // If user is already an editor, redirect to main app view
       if (isEditor) {
+        // User is already an editor, redirect to main app view
         router.push(`/?noteId=${note.id}`);
         return;
       }
       
-      // If the note is public and user is not an editor, add them.
-      if (note.isPublic) {
+      if (note.isPublic && !isEditor) {
+        // Note is public and the user is not an editor yet, so add them.
         updateDoc(noteRef, {
           editors: arrayUnion(user.uid)
         }).then(() => {
-          // After successfully adding user, redirect them.
+          // After successfully adding user, redirect them to the main app.
           router.push(`/?noteId=${note.id}`);
         }).catch(err => {
           console.error("Failed to add user as editor:", err);
@@ -102,11 +104,8 @@ export default function SharedNotePage({ params }: { params: { noteId: string } 
         });
       }
     }
-    // If we reach here, it means:
-    // 1. User is not logged in -> Show read-only view if note is public.
-    // 2. User is logged in, but note is not public and they are not an editor -> Show "not found".
-    // 3. User is logged in, note is public, and we are in the process of adding them as an editor.
-  }, [user, note, isUserLoading, isNoteLoading, router, noteRef]);
+    // If user is not logged in, they will just see the read-only view (handled below).
+  }, [user, note, isUserLoading, router, noteRef]);
 
   const isLoading = isUserLoading || isNoteLoading;
 
@@ -114,22 +113,26 @@ export default function SharedNotePage({ params }: { params: { noteId: string } 
     return <div className="flex h-screen items-center justify-center">Loading note...</div>;
   }
 
-  // If we have finished loading but there is no note data
+  // After loading, if there's still no note data, it's not found or not public.
   if (!note) {
     return <div className="flex h-screen items-center justify-center">Note not found or you don't have access.</div>;
   }
   
-  // Show read-only view if the note is public AND (the user is not logged in OR is not an editor yet)
-  if (note.isPublic && (!user || !note.editors.includes(user.uid))) {
-    return <NoteReadOnlyView note={note} />;
+  // A logged-in user who is an editor should have been redirected.
+  // This view is for:
+  // 1. Anonymous users viewing a public note.
+  // 2. Logged-in users viewing a public note before they are added as an editor.
+  // 3. Logged-in users viewing a non-public note they don't have access to (will show the 'not found' message).
+  if (note.isPublic) {
+      if (!user || !note.editors.includes(user.uid)) {
+          return <NoteReadOnlyView note={note} />;
+      }
   }
 
-  // If the note is not public and the user is not an editor
-  if (!note.isPublic && (!user || !note.editors.includes(user.uid))) {
-     return <div className="flex h-screen items-center justify-center">Note not found or you don't have access.</div>;
+  if (!user || !note.editors.includes(user.uid)) {
+    return <div className="flex h-screen items-center justify-center">Note not found or you don't have access.</div>;
   }
 
-
-  // Fallback for any other state (like during the redirect after being added as editor)
+  // Fallback for any other state (e.g., during the redirect after being added as editor)
   return <div className="flex h-screen items-center justify-center">Loading...</div>;
 }

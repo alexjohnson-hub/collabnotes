@@ -2,16 +2,17 @@
 "use client";
 
 import * as React from "react";
+import "react-quill/dist/quill.snow.css";
+import dynamic from "next/dynamic";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardFooter,
+  CardHeader,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
 import { History, Share2, Trash2 } from "lucide-react";
@@ -28,9 +29,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
-import { EditorToolbar } from "./editor-toolbar";
-import { Separator } from "@/components/ui/separator";
-import ReactMarkdown from 'react-markdown';
+
+const ReactQuill = dynamic(() => import("react-quill"), { ssr: false });
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -40,8 +40,6 @@ export function NoteEditor() {
   const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
     if (activeNote) {
@@ -53,14 +51,14 @@ export function NoteEditor() {
       setContent("");
       setLastSaved(null);
     }
-    // When note changes, exit editing mode
-    setIsEditing(false); 
   }, [activeNote]);
 
   React.useEffect(() => {
     if (activeNote?.versions[0]?.timestamp) {
       const timestamp = activeNote.versions[0].timestamp;
-      const date = (timestamp as any).toDate ? (timestamp as any).toDate() : new Date(timestamp as any);
+      const date = (timestamp as any).toDate
+        ? (timestamp as any).toDate()
+        : new Date(timestamp as any);
       setLastSaved(date.toLocaleString());
     }
   }, [activeNote?.versions[0]?.timestamp]);
@@ -77,17 +75,17 @@ export function NoteEditor() {
   }, [title, activeNote, dispatch]);
 
   React.useEffect(() => {
-    if (!activeNote || !isEditing || content === activeNote.versions[0]?.content) return;
-  
+    if (!activeNote || content === activeNote.versions[0]?.content) return;
+
     const handler = setTimeout(() => {
       dispatch({
         type: "UPDATE_NOTE_CONTENT",
         payload: { id: activeNote.id, content },
       });
-    }, 1500); 
-  
+    }, 1500);
+
     return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch, isEditing]);
+  }, [content, activeNote, dispatch]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -103,20 +101,16 @@ export function NoteEditor() {
   const handleShare = () => {
     if (activeNote) {
       dispatch({ type: "MAKE_NOTE_PUBLIC", payload: activeNote.id });
-      
+
       const shareLink = `${window.location.origin}/note/${activeNote.id}`;
       navigator.clipboard.writeText(shareLink);
       toast({
         title: "Link Copied",
-        description: "A public, shareable link has been copied to your clipboard.",
+        description:
+          "A public, shareable link has been copied to your clipboard.",
       });
     }
   };
-
-  const handleContentBlur = () => {
-    setIsEditing(false);
-    // The useEffect for content update will handle saving.
-  }
 
   if (!activeNote) {
     return null;
@@ -179,38 +173,43 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       
-      {isEditing && (
-        <>
-        <div className="px-6 pb-2">
-            <EditorToolbar
-            textAreaRef={textAreaRef}
-            content={content}
-            setContent={setContent}
-            />
-        </div>
-        <Separator />
-        </>
-      )}
+      <style jsx global>{`
+        .ql-container {
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+        }
+        .ql-editor {
+          flex-grow: 1;
+          overflow-y: auto;
+          font-size: 16px;
+          line-height: 1.6;
+        }
+        .ql-toolbar {
+          border-top-left-radius: var(--radius);
+          border-top-right-radius: var(--radius);
+        }
+        .ql-container.ql-snow {
+           border-bottom-left-radius: var(--radius);
+           border-bottom-right-radius: var(--radius);
+        }
+        .quill-editor {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+      `}</style>
 
       <CardContent className="flex-1 flex flex-col pt-2 overflow-y-auto">
-        {isEditing ? (
-            <Textarea
-            ref={textAreaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={handleContentBlur}
-            placeholder="Start writing your masterpiece..."
-            className="flex-1 w-full h-full p-2 border-0 rounded-none resize-none focus-visible:ring-0"
-            autoFocus
-            />
-        ) : (
-            <div
-            onClick={() => setIsEditing(true)}
-            className="prose dark:prose-invert max-w-none w-full h-full p-2 cursor-text"
-            >
-            {content ? <ReactMarkdown>{content}</ReactMarkdown> : <p className="text-muted-foreground">Tap to edit</p>}
-            </div>
-        )}
+        <div className="quill-editor">
+            <ReactQuill
+                theme="snow"
+                value={content}
+                onChange={setContent}
+                placeholder="Start writing your masterpiece..."
+                className="flex-1"
+                />
+        </div>
       </CardContent>
       <CardFooter>
         <Collaborators />

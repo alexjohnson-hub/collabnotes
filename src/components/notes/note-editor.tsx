@@ -30,6 +30,8 @@ import {
 import { Collaborators } from "./collaborators";
 import { Textarea } from "../ui/textarea";
 import ReactMarkdown from "react-markdown";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { EditorToolbar } from "./editor-toolbar";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -39,6 +41,7 @@ export function NoteEditor() {
   const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
     if (activeNote) {
@@ -170,18 +173,30 @@ export function NoteEditor() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
-          <Textarea
+      <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
+        <Tabs defaultValue="write" className="flex-1 flex flex-col gap-2 overflow-hidden">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="write">Write</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+            <EditorToolbar editorRef={textareaRef} setContent={setContent}/>
+          </div>
+          <TabsContent value="write" className="flex-1 overflow-y-auto">
+            <Textarea
+              ref={textareaRef}
               className="flex-1 text-base resize-none border rounded-md p-4 h-full"
               placeholder="Start writing your masterpiece in Markdown..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
-          />
-          <div className="hidden md:block border rounded-md p-4 h-full overflow-y-auto">
-                <div className="prose dark:prose-invert max-w-none">
-                  <ReactMarkdown>{content}</ReactMarkdown>
+            />
+          </TabsContent>
+          <TabsContent value="preview" className="flex-1 overflow-y-auto border rounded-md p-4">
+              <div className="prose dark:prose-invert max-w-none">
+                <ReactMarkdown>{content || "Nothing to preview."}</ReactMarkdown>
               </div>
-          </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
       <CardFooter>
         <Collaborators />

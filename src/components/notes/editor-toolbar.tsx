@@ -138,24 +138,28 @@ export function EditorToolbar({
         }
     }, 0);
   };
+  
+  const handleButtonMouseDown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-1 rounded-md border p-1 bg-card">
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("bold")} aria-label="Toggle bold"><Bold className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("italic")} aria-label="Toggle italic"><Italic className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("strikethrough")} aria-label="Toggle strikethrough"><Strikethrough className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("code")} aria-label="Toggle code"><Code className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("bold")} onMouseDown={handleButtonMouseDown} aria-label="Toggle bold"><Bold className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("italic")} onMouseDown={handleButtonMouseDown} aria-label="Toggle italic"><Italic className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("strikethrough")} onMouseDown={handleButtonMouseDown} aria-label="Toggle strikethrough"><Strikethrough className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("code")} onMouseDown={handleButtonMouseDown} aria-label="Toggle code"><Code className="h-4 w-4" /></Button>
       <Separator orientation="vertical" className="h-6 mx-1" />
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h1")} aria-label="Heading 1"><Heading1 className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h2")} aria-label="Heading 2"><Heading2 className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h3")} aria-label="Heading 3"><Heading3 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h1")} onMouseDown={handleButtonMouseDown} aria-label="Heading 1"><Heading1 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h2")} onMouseDown={handleButtonMouseDown} aria-label="Heading 2"><Heading2 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("h3")} onMouseDown={handleButtonMouseDown} aria-label="Heading 3"><Heading3 className="h-4 w-4" /></Button>
       <Separator orientation="vertical" className="h-6 mx-1" />
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("ul")} aria-label="Unordered List"><List className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("ol")} aria-label="Ordered List"><ListOrdered className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("quote")} aria-label="Quote"><Quote className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("ul")} onMouseDown={handleButtonMouseDown} aria-label="Unordered List"><List className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("ol")} onMouseDown={handleButtonMouseDown} aria-label="Ordered List"><ListOrdered className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("quote")} onMouseDown={handleButtonMouseDown} aria-label="Quote"><Quote className="h-4 w-4" /></Button>
       <Separator orientation="vertical" className="h-6 mx-1" />
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("link")} aria-label="Insert Link"><Link className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("image")} aria-label="Insert Image"><ImageIcon className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("link")} onMouseDown={handleButtonMouseDown} aria-label="Insert Link"><Link className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="sm" onClick={() => applyMarkdown("image")} onMouseDown={handleButtonMouseDown} aria-label="Insert Image"><ImageIcon className="h-4 w-4" /></Button>
     </div>
   );
 }

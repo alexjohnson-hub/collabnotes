@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -59,13 +60,17 @@ const NotesContext = createContext<
 
 const notesReducer = (state: NotesState, action: Action): NotesState => {
   switch (action.type) {
-    case "SET_NOTES":
-      return {
-        ...state,
-        notes: action.payload,
-        activeNoteId:
-          state.activeNoteId || (action.payload[0]?.id ?? null),
-      };
+    case "SET_NOTES": {
+        const newNotes = action.payload;
+        // If there's no active note, or the active note is no longer in the list,
+        // select the first note from the new list.
+        const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
+        return {
+          ...state,
+          notes: newNotes,
+          activeNoteId: activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null),
+        };
+      }
     case "SELECT_NOTE":
       return { ...state, activeNoteId: action.payload };
     default:
@@ -82,7 +87,8 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     activeNoteId: null,
   });
 
-  const notesQuery = useMemoFirebase(
+  // Query for notes where the user is the owner
+  const ownedNotesQuery = useMemoFirebase(
     () =>
       user && firestore
         ? query(
@@ -93,22 +99,51 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         : null,
     [firestore, user]
   );
+  const { data: ownedNotes } = useCollection<Note>(ownedNotesQuery);
 
-  const { data: notes, isLoading } = useCollection<Note>(notesQuery);
+  // Query for notes where the user is a collaborator
+  const collaborativeNotesQuery = useMemoFirebase(
+    () =>
+      user && firestore
+        ? query(
+            collection(firestore, "notes"),
+            where("collaboratorIds", "array-contains", user.uid),
+            orderBy("createdAt", "desc")
+          )
+        : null,
+    [firestore, user]
+  );
+  const { data: collaborativeNotes } = useCollection<Note>(collaborativeNotesQuery);
 
   useEffect(() => {
-    if (notes) {
-      const processedNotes = notes.map(note => ({
-        ...note,
-        createdAt: (note.createdAt as any)?.toDate(),
-        versions: note.versions.map(v => ({
-            ...v,
-            timestamp: (v.timestamp as any)?.toDate(),
-        }))
-      }));
-      dispatch({ type: "SET_NOTES", payload: processedNotes });
-    }
-  }, [notes]);
+    // Combine and deduplicate owned and collaborative notes
+    const allNotes = [
+      ...(ownedNotes || []),
+      ...(collaborativeNotes || []),
+    ];
+
+    const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
+    
+    // Sort all notes by creation date
+    uniqueNotes.sort((a, b) => {
+        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : a.createdAt;
+        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : b.createdAt;
+        return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+    });
+
+    const processedNotes = uniqueNotes.map(note => ({
+      ...note,
+      createdAt: (note.createdAt as any)?.toDate(),
+      versions: note.versions.map(v => ({
+          ...v,
+          timestamp: (v.timestamp as any)?.toDate(),
+      }))
+    }));
+    
+    dispatch({ type: "SET_NOTES", payload: processedNotes });
+
+  }, [ownedNotes, collaborativeNotes]);
+
 
   const handleAction = (action: Action) => {
     if (!user || !firestore) return;
@@ -209,3 +244,5 @@ export const useNotes = () => {
   }
   return context;
 };
+
+    

@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,12 +29,14 @@ service cloud.firestore {
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
     }
 
-    // LIST: A user can list notes where they are the owner OR a collaborator.
+    // LIST rules for queries
     match /notes/{noteId} {
-        allow list: if request.auth != null && (
-          (request.query.resource.data.ownerId == request.auth.uid) || 
-          (request.auth.uid in resource.data.collaboratorIds)
-        );
+        // Allow users to list notes they own
+        allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
+        // Allow users to list notes they are a collaborator on
+        allow list: if request.auth != null && request.auth.uid in resource.data.collaboratorIds;
     }
   }
 }
+
+    

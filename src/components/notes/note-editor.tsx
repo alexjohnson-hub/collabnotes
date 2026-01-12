@@ -7,11 +7,11 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
 import { History, Share2, Trash2 } from "lucide-react";
@@ -28,10 +28,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
-import { Textarea } from "../ui/textarea";
-import ReactMarkdown from "react-markdown";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EditorToolbar } from "./editor-toolbar";
+import { Separator } from "@/components/ui/separator";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -41,7 +39,7 @@ export function NoteEditor() {
   const [content, setContent] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const textAreaRef = React.useRef<HTMLTextAreaElement>(null);
 
   React.useEffect(() => {
     if (activeNote) {
@@ -75,19 +73,20 @@ export function NoteEditor() {
   }, [title, activeNote, dispatch]);
 
   React.useEffect(() => {
+    // Check if there is an active note and if the content has actually changed from the latest version.
     if (!activeNote || content === activeNote.versions[0]?.content) return;
-
+  
+    // Debounce the content update.
     const handler = setTimeout(() => {
       dispatch({
         type: "UPDATE_NOTE_CONTENT",
         payload: { id: activeNote.id, content },
       });
-      toast({
-        description: "Changes saved as a new version.",
-      });
-    }, 1500);
+    }, 1500); // Wait for 1.5 seconds of inactivity before saving.
+  
+    // Cleanup function to clear the timeout if the user continues typing.
     return () => clearTimeout(handler);
-  }, [content, activeNote, dispatch, toast]);
+  }, [content, activeNote, dispatch]);
 
   const handleDelete = () => {
     if (activeNote) {
@@ -173,30 +172,24 @@ export function NoteEditor() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <Tabs defaultValue="write" className="flex-1 flex flex-col gap-2 overflow-hidden">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="write">Write</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
-            <EditorToolbar editorRef={textareaRef} setContent={setContent}/>
-          </div>
-          <TabsContent value="write" className="flex-1 overflow-y-auto">
-            <Textarea
-              ref={textareaRef}
-              className="flex-1 text-base resize-none border rounded-md p-4 h-full"
-              placeholder="Start writing your masterpiece in Markdown..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-            />
-          </TabsContent>
-          <TabsContent value="preview" className="flex-1 overflow-y-auto border rounded-md p-4">
-              <div className="prose dark:prose-invert max-w-none">
-                <ReactMarkdown>{content || "Nothing to preview."}</ReactMarkdown>
-              </div>
-          </TabsContent>
-        </Tabs>
+      
+      <div className="px-6 pb-2">
+        <EditorToolbar
+          textAreaRef={textAreaRef}
+          content={content}
+          setContent={setContent}
+        />
+      </div>
+      <Separator />
+
+      <CardContent className="flex-1 flex flex-col pt-2 overflow-y-auto">
+        <Textarea
+          ref={textAreaRef}
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Start writing your masterpiece..."
+          className="flex-1 w-full h-full p-2 border-0 rounded-none resize-none focus-visible:ring-0"
+        />
       </CardContent>
       <CardFooter>
         <Collaborators />

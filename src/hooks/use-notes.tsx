@@ -134,7 +134,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
     switch (type) {
       case "ADD_NOTE": {
-        const newVersion: NoteVersion = { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() as Timestamp };
+        const newVersion: NoteVersion = { id: `v-${Date.now()}`, content: "", timestamp: new Date() };
         const newNote = {
           title: "Untitled Note",
           ownerId: user.uid,

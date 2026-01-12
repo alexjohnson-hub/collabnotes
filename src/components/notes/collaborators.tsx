@@ -40,7 +40,7 @@ export function Collaborators() {
   const noteOwner = owner[0];
 
   return (
-    <div className="flex items-center">
+    <div className="flex items-center -space-x-2">
       <Tooltip>
         <TooltipTrigger asChild>
           <Avatar className="border-2 border-background">

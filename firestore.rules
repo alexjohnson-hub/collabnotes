@@ -5,34 +5,42 @@ service cloud.firestore {
 
     // Rules for the 'users' collection
     match /users/{userId} {
-      // Allow authenticated users to read any user profile (for collaborator avatars/names)
+      // Allow any authenticated user to read any user profile.
+      // This is needed to display collaborator avatars and names.
       allow get: if request.auth != null;
-      // Allow a user to create, read and write to their own profile document
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Allow a user to create or update their own profile document.
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
     // Rules for the 'notes' collection
     match /notes/{noteId} {
-      // READ (Single Doc): A user can read a note if they are the owner or a collaborator.
+      // READ (Single Document): A user can read a specific note if they are the owner or a collaborator.
       allow get: if request.auth != null && (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
 
-      // CREATE: A user can create a note if they are authenticated and set themselves as the owner.
+      // CREATE: An authenticated user can create a note if they set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
 
-      // UPDATE: The owner can update anything. Collaborators can update the note but not change ownership or the collaborator list.
+      // UPDATE: The owner can update anything. A collaborator can also update the note (e.g., content, title).
+      // This rule prevents a collaborator from changing the owner or the list of collaborators.
       allow update: if request.auth != null && 
                      ( (resource.data.ownerId == request.auth.uid) || 
                        (request.auth.uid in resource.data.collaboratorIds && 
                         request.resource.data.ownerId == resource.data.ownerId && 
                         request.resource.data.collaboratorIds == resource.data.collaboratorIds) );
 
-      // DELETE: Only the owner can delete a note.
+      // DELETE: Only the owner of a note can delete it.
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
 
-      // LIST (Query): These rules must be separate and match the client-side queries.
-      // This rule allows the query for notes owned by the user.
+      // LIST (Queries): These rules must be separate from document-specific rules.
+      // They must explicitly match the queries made by the client application.
+      
+      // Allow query for notes owned by the current user.
+      // Matches: query(notes, where("ownerId", "==", auth.uid))
       allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
-      // This rule allows the query for notes where the user is a collaborator.
+
+      // Allow query for notes where the current user is a collaborator.
+      // Matches: query(notes, where("collaboratorIds", "array-contains", auth.uid))
       allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
     }
   }

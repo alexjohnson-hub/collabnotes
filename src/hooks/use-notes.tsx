@@ -29,6 +29,7 @@ import {
   query,
   serverTimestamp,
   where,
+  Timestamp,
 } from "firebase/firestore";
 
 interface NotesState {
@@ -62,7 +63,6 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
     case "SET_NOTES": {
         const newNotes = action.payload;
         const activeNoteExists = newNotes.some(note => note.id === state.activeNoteId);
-        // If the active note doesn't exist anymore (e.g. deleted), select the first note or null.
         const newActiveNoteId = activeNoteExists ? state.activeNoteId : (newNotes[0]?.id ?? null);
         return {
           ...state,
@@ -73,11 +73,19 @@ const notesReducer = (state: NotesState, action: Action): NotesState => {
     case "SELECT_NOTE":
       return { ...state, activeNoteId: action.payload };
     default:
-      // For actions that trigger Firestore updates, we don't modify the state here.
-      // The state will be updated by the `useEffect` listening to `useCollection`.
       return state;
   }
 };
+
+const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
+    if (timestamp instanceof Timestamp) {
+        return timestamp.toDate();
+    }
+    if (timestamp instanceof Date) {
+        return timestamp;
+    }
+    return new Date(0); // Return epoch if invalid
+}
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
@@ -88,20 +96,15 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
     activeNoteId: null,
   });
 
-  // Query for notes owned by the user.
   const ownedNotesQuery = useMemoFirebase(
     () =>
       user && firestore
-        ? query(
-            collection(firestore, "notes"),
-            where("ownerId", "==", user.uid)
-          )
+        ? query(collection(firestore, "notes"), where("ownerId", "==", user.uid))
         : null,
     [firestore, user]
   );
   const { data: ownedNotes, isLoading: isLoadingOwned } = useCollection<Note>(ownedNotesQuery);
 
-  // Query for notes where the user is a collaborator.
   const collaborativeNotesQuery = useMemoFirebase(
     () =>
       user && firestore
@@ -115,34 +118,35 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { data: collaborativeNotes, isLoading: isLoadingCollaborative } = useCollection<Note>(collaborativeNotesQuery);
 
   useEffect(() => {
-    // Only proceed when both queries are no longer loading
     if (isLoadingOwned || isLoadingCollaborative) {
         return;
     }
 
-    const allNotes = [
+    const allNotesRaw = [
       ...(ownedNotes || []),
       ...(collaborativeNotes || []),
     ];
 
-    // Create a map to remove duplicates, preferring the version from ownedNotes if IDs clash (unlikely).
-    const uniqueNotes = Array.from(new Map(allNotes.map(note => [note.id, note])).values());
-    
-    // Sort all notes by creation date, descending, on the client side.
-    uniqueNotes.sort((a, b) => {
-        const dateA = (a.createdAt as any)?.toDate ? (a.createdAt as any).toDate() : new Date(a.createdAt as any || 0);
-        const dateB = (b.createdAt as any)?.toDate ? (b.createdAt as any).toDate() : new Date(b.createdAt as any || 0);
-        return (dateB?.getTime() || 0) - (dateA?.getTime() || 0);
+    const uniqueNotesMap = new Map<string, Note>();
+    allNotesRaw.forEach(note => {
+        uniqueNotesMap.set(note.id, note);
     });
 
-    // Process timestamps inside notes and versions
+    const uniqueNotes = Array.from(uniqueNotesMap.values());
+    
+    uniqueNotes.sort((a, b) => {
+        const dateA = toDate(a.createdAt);
+        const dateB = toDate(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+    });
+
     const processedNotes = uniqueNotes.map(note => ({
       ...note,
-      createdAt: (note.createdAt as any)?.toDate ? (note.createdAt as any).toDate() : note.createdAt,
-      versions: note.versions?.map(v => ({
+      createdAt: toDate(note.createdAt),
+      versions: (note.versions || []).map(v => ({
           ...v,
-          timestamp: (v.timestamp as any)?.toDate ? (v.timestamp as any).toDate() : v.timestamp,
-      })) || [],
+          timestamp: toDate(v.timestamp),
+      })).sort((a,b) => toDate(b.timestamp).getTime() - toDate(a.timestamp).getTime()),
     }));
     
     dispatch({ type: "SET_NOTES", payload: processedNotes });
@@ -157,7 +161,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
     switch (type) {
       case "ADD_NOTE": {
-        const newVersion = { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() };
+        const newVersion: NoteVersion = { id: `v-${Date.now()}`, content: "", timestamp: serverTimestamp() as Timestamp };
         const newNote = {
           title: "Untitled Note",
           ownerId: user.uid,
@@ -192,7 +196,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
             content: content,
             timestamp: serverTimestamp() as any,
           };
-          const updatedVersions = [newVersion, ...note.versions].slice(0, 20); // Keep last 20 versions
+          const updatedVersions = [newVersion, ...note.versions].slice(0, 20); 
           setDocumentNonBlocking(
             doc(firestore, "notes", id),
             { versions: updatedVersions },
@@ -225,11 +229,6 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         }
         break;
       }
-      case "SELECT_NOTE": {
-        dispatch(action); // This is a local state change, no Firestore interaction needed
-        break;
-      }
-      // For other cases, the reducer handles them if they are local state changes
       default: 
         dispatch(action);
     }

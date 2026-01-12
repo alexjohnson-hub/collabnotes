@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -8,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useNotes } from "@/hooks/use-notes";
 import { useMemo, useState } from "react";
-import { useCollection, useFirestore, useUser } from "@/firebase";
+import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { Button } from "../ui/button";
 import { UserPlus } from "lucide-react";
@@ -55,7 +56,7 @@ export function Collaborators() {
     [activeNote]
   );
 
-  const collaboratorsQuery = useMemo(
+  const collaboratorsQuery = useMemoFirebase(
     () =>
       collaboratorIds.length > 0 && firestore
         ? query(

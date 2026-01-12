@@ -28,19 +28,12 @@ service cloud.firestore {
 
       // DELETE: Only the owner can delete a note.
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
-    }
 
-    // LIST (Query) rules for the 'notes' collection. These must be separate and use request.query.where
-    match /notes/{noteId} {
-        // Allow users to list notes where they are the owner.
-        // This rule validates: where('ownerId', '==', uid)
-        allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
-    }
-
-    match /notes/{noteId} {
-        // Allow users to list notes where they are a collaborator.
-        // This rule validates: where('collaboratorIds', 'array-contains', uid)
-        allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
+      // LIST (Query): These rules must be separate and match the client-side queries.
+      // This rule allows the query for notes owned by the user.
+      allow list: if request.auth != null && request.query.where.ownerId == request.auth.uid;
+      // This rule allows the query for notes where the user is a collaborator.
+      allow list: if request.auth != null && request.auth.uid in request.query.where.collaboratorIds;
     }
   }
 }

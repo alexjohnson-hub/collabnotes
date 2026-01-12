@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNotes } from "@/hooks/use-notes";
 import { useToast } from "@/hooks/use-toast";
-import { History, Share2, Trash2 } from "lucide-react";
+import { History, Share2, Trash2, Pencil, Check } from "lucide-react";
 import { VersionHistory } from "./version-history";
 import {
   AlertDialog,
@@ -42,6 +42,7 @@ export function NoteEditor() {
   const [title, setTitle] = React.useState("");
   const [isHistoryOpen, setHistoryOpen] = React.useState(false);
   const [lastSaved, setLastSaved] = React.useState<string | null>(null);
+  const [isEditing, setIsEditing] = React.useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -54,9 +55,10 @@ export function NoteEditor() {
       }),
     ],
     content: activeNote?.versions[0]?.content ?? "",
+    editable: isEditing,
     editorProps: {
         attributes: {
-            class: 'prose dark:prose-invert focus:outline-none w-full max-w-none p-4',
+            class: `prose dark:prose-invert focus:outline-none w-full max-w-none p-4 ${isEditing ? '' : 'min-h-[200px] border-none rounded-lg'}`,
         },
     },
     onUpdate: ({ editor }) => {
@@ -78,11 +80,18 @@ export function NoteEditor() {
       if (editor && editor.getHTML() !== currentVersion?.content) {
         editor.commands.setContent(currentVersion?.content ?? "");
       }
+      setIsEditing(false); // Default to view mode on note change
     } else {
       setTitle("");
       editor?.commands.setContent("");
     }
   }, [activeNote, editor]);
+
+  React.useEffect(() => {
+    if (editor) {
+      editor.setEditable(isEditing);
+    }
+  }, [isEditing, editor]);
 
 
   React.useEffect(() => {
@@ -146,6 +155,7 @@ export function NoteEditor() {
               onChange={(e) => setTitle(e.target.value)}
               className="text-2xl font-bold font-headline tracking-tight border-none shadow-none focus-visible:ring-0 p-0 h-auto"
               placeholder="Untitled Note"
+              readOnly={!isEditing}
             />
             {lastSaved && (
               <CardDescription className="mt-1">
@@ -154,6 +164,10 @@ export function NoteEditor() {
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <Button variant="outline" size="icon" onClick={() => setIsEditing(!isEditing)}>
+              {isEditing ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+              <span className="sr-only">{isEditing ? "Done Editing" : "Edit Note"}</span>
+            </Button>
             <Button variant="outline" size="icon" onClick={handleShare}>
               <Share2 className="h-4 w-4" />
               <span className="sr-only">Share Note</span>
@@ -193,10 +207,12 @@ export function NoteEditor() {
         </div>
       </CardHeader>
       
-      <div className="px-4 pb-2">
-        <EditorToolbar editor={editor} />
-        <Separator />
-      </div>
+      {isEditing && (
+        <div className="px-4 pb-2">
+            <EditorToolbar editor={editor} />
+            <Separator />
+        </div>
+      )}
 
       <CardContent className="flex-1 flex flex-col pt-0 overflow-y-auto">
         <EditorContent editor={editor} className="flex-1 overflow-y-auto" />

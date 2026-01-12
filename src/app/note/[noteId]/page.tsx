@@ -1,10 +1,10 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDoc, useUser, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, DocumentReference, DocumentData } from 'firebase/firestore';
 import { Note } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ReactMarkdown from 'react-markdown';
@@ -68,19 +68,31 @@ export default function SharedNotePage({ params }: { params: { noteId: string } 
   const firestore = useFirestore();
   const router = useRouter();
 
-  const noteRef = doc(firestore, 'notes', params.noteId);
+  // State to hold the note reference, which will be initialized only when ready.
+  const [noteRef, setNoteRef] = useState<DocumentReference<DocumentData> | null>(null);
+
+  // This effect waits for the user loading to be complete before creating the doc reference.
+  useEffect(() => {
+    if (!isUserLoading && firestore) {
+      setNoteRef(doc(firestore, 'notes', params.noteId));
+    }
+  }, [isUserLoading, firestore, params.noteId]);
+
   const { data: note, isLoading: isNoteLoading } = useDoc<Note>(noteRef);
 
   useEffect(() => {
     if (!isUserLoading && !isNoteLoading && user && note) {
+      // User is logged in and we have the note data.
       if (note.editors.includes(user.uid)) {
-        // User has access, redirect to the main app with the note selected
+        // User has access, redirect to the main app with the note selected.
         router.push(`/?noteId=${note.id}`);
       }
     }
   }, [user, note, isUserLoading, isNoteLoading, router]);
 
-  if (isUserLoading || isNoteLoading) {
+  // Show a loading state until we've checked for a user and tried fetching the note.
+  const isLoading = isUserLoading || (noteRef && isNoteLoading);
+  if (isLoading) {
     return <div className="flex h-screen items-center justify-center">Loading note...</div>;
   }
 
@@ -88,6 +100,7 @@ export default function SharedNotePage({ params }: { params: { noteId: string } 
     return <div className="flex h-screen items-center justify-center">Note not found or you don't have access.</div>;
   }
   
-  // User is not logged in, or does not have access. Show read-only view.
+  // If we have a note but the user is not an editor (or is not logged in),
+  // show the public, read-only view.
   return <NoteReadOnlyView note={note} />;
 }

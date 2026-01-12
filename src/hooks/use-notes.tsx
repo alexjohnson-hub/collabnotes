@@ -22,6 +22,7 @@ import {
   addDocumentNonBlocking,
   deleteDocumentNonBlocking,
   setDocumentNonBlocking,
+  updateDocumentNonBlocking,
 } from "@/firebase/non-blocking-updates";
 import {
   collection,
@@ -44,7 +45,8 @@ type Action =
   | { type: "SELECT_NOTE"; payload: string | null }
   | { type: "UPDATE_NOTE_TITLE"; payload: { id: string; title: string } }
   | { type: "UPDATE_NOTE_CONTENT"; payload: { id: string; content: string } }
-  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } };
+  | { type: "RESTORE_VERSION"; payload: { noteId: string; versionId: string } }
+  | { type: "MAKE_NOTE_PUBLIC"; payload: string };
 
 const NotesContext = createContext<
   | (NotesState & {
@@ -138,6 +140,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
         const newNote = {
           title: "Untitled Note",
           editors: [user.uid],
+          isPublic: false,
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
         };
@@ -156,7 +159,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
       }
       case "UPDATE_NOTE_TITLE": {
         const { id, title } = payload as { id: string; title: string };
-        setDocumentNonBlocking(doc(firestore, "notes", id), { title }, { merge: true });
+        updateDocumentNonBlocking(doc(firestore, "notes", id), { title });
         break;
       }
       case "UPDATE_NOTE_CONTENT": {
@@ -169,10 +172,9 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
             timestamp: new Date(),
           };
           const updatedVersions = [newVersion, ...note.versions].slice(0, 20); 
-          setDocumentNonBlocking(
+          updateDocumentNonBlocking(
             doc(firestore, "notes", id),
-            { versions: updatedVersions },
-            { merge: true }
+            { versions: updatedVersions }
           );
         }
         break;
@@ -188,8 +190,13 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
               timestamp: new Date(),
             };
             const updatedVersions = [newVersion, ...note.versions].slice(0, 20);
-            setDocumentNonBlocking(doc(firestore, "notes", noteId), { versions: updatedVersions }, { merge: true });
+            updateDocumentNonBlocking(doc(firestore, "notes", noteId), { versions: updatedVersions });
         }
+        break;
+      }
+      case "MAKE_NOTE_PUBLIC": {
+        const noteId = payload as string;
+        updateDocumentNonBlocking(doc(firestore, "notes", noteId), { isPublic: true });
         break;
       }
       default: 

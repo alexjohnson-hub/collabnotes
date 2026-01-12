@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -40,6 +41,10 @@
         "title": {
           "type": "string",
           "description": "Title of the note."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the note is publicly readable."
         },
         "editors": {
           "type": "array",

@@ -1,3 +1,4 @@
+
 import { Timestamp } from "firebase/firestore";
 
 export interface NoteVersion {
@@ -12,4 +13,5 @@ export interface Note {
   versions: NoteVersion[];
   createdAt: Date | Timestamp;
   editors: string[];
+  isPublic?: boolean;
 }

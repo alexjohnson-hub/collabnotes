@@ -58,7 +58,7 @@ export function NoteEditor() {
   React.useEffect(() => {
     if (activeNote?.versions[0]?.timestamp) {
       setLastSaved(
-        new Date(activeNote.versions[0].timestamp).toLocaleString()
+        new Date(activeNote.versions[0].timestamp as any).toLocaleString()
       );
     }
   }, [activeNote?.versions[0]?.timestamp]);
@@ -165,11 +165,14 @@ export function NoteEditor() {
 
   const handleShare = () => {
     if (activeNote) {
+      // Mark the note as public when sharing
+      dispatch({ type: "MAKE_NOTE_PUBLIC", payload: activeNote.id });
+      
       const shareLink = `${window.location.origin}/note/${activeNote.id}`;
       navigator.clipboard.writeText(shareLink);
       toast({
         title: "Link Copied",
-        description: "A shareable link has been copied to your clipboard.",
+        description: "A public, shareable link has been copied to your clipboard.",
       });
     }
   };

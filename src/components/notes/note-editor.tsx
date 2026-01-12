@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Collaborators } from "./collaborators";
 import { Textarea } from "../ui/textarea";
+import ReactMarkdown from "react-markdown";
 
 export function NoteEditor() {
   const { activeNote, dispatch } = useNotes();
@@ -114,7 +115,7 @@ export function NoteEditor() {
   }
 
   return (
-    <Card className="h-full flex flex-col m-4 md:m-6">
+    <Card className="h-full flex flex-col m-4 md:m-6 overflow-hidden">
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -169,13 +170,18 @@ export function NoteEditor() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-4">
-        <Textarea
-          className="flex-1 text-base resize-none border-0 focus-visible:ring-0"
-          placeholder="Start writing your masterpiece..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-        />
+      <CardContent className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 overflow-hidden">
+          <Textarea
+              className="flex-1 text-base resize-none border rounded-md p-4 h-full"
+              placeholder="Start writing your masterpiece in Markdown..."
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+          />
+          <div className="hidden md:block border rounded-md p-4 h-full overflow-y-auto">
+                <div className="prose dark:prose-invert max-w-none">
+                  <ReactMarkdown>{content}</ReactMarkdown>
+              </div>
+          </div>
       </CardContent>
       <CardFooter>
         <Collaborators />

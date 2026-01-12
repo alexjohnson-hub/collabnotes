@@ -6,16 +6,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // Rules for the 'notes' collection
+    
     match /notes/{noteId} {
       // READ: A user can read a note if they are authenticated and are either the owner
       // or their UID is in the collaboratorIds list.
       allow read: if request.auth != null && 
                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.collaboratorIds);
-
-      // LIST: A user can list notes where they are the owner.
-      allow list: if request.auth != null && request.query.resource.data.ownerId == request.auth.uid;
 
       // CREATE: A user can create a note if they are authenticated and they set themselves as the owner.
       allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
@@ -30,6 +26,14 @@ service cloud.firestore {
 
       // DELETE: Only the owner can delete a note.
       allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+    }
+
+    // LIST: A user can list notes where they are the owner OR a collaborator.
+    match /notes/{noteId} {
+        allow list: if request.auth != null && (
+          (request.query.resource.data.ownerId == request.auth.uid) || 
+          (request.auth.uid in resource.data.collaboratorIds)
+        );
     }
   }
 }

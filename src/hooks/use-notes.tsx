@@ -85,7 +85,7 @@ const toDate = (timestamp: Timestamp | Date | undefined | null): Date => {
 
 export const NotesProvider = ({ children }: { children: ReactNode }) => {
   const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
 
   const [state, dispatch] = useReducer(notesReducer, {
     notes: [],
@@ -94,10 +94,10 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
 
   const notesQuery = useMemoFirebase(
     () =>
-      user && firestore
+      user && firestore && !isUserLoading
         ? query(collection(firestore, "notes"), where("ownerId", "==", user.uid))
         : null,
-    [firestore, user]
+    [firestore, user, isUserLoading]
   );
   
   const { data: notesData, isLoading } = useCollection<Note>(notesQuery);
@@ -140,7 +140,7 @@ export const NotesProvider = ({ children }: { children: ReactNode }) => {
           ownerId: user.uid,
           createdAt: serverTimestamp(),
           versions: [ newVersion ],
-          accessControl: [user.uid]
+          collaboratorIds: [],
         };
         addDocumentNonBlocking(collection(firestore, "notes"), newNote).then(
           (docRef) => {

@@ -208,7 +208,7 @@ export function NoteEditor() {
             onClick={() => setIsEditing(true)}
             className="prose dark:prose-invert max-w-none w-full h-full p-2 cursor-text"
             >
-            <ReactMarkdown>{content || <p className="text-muted-foreground">Start writing your masterpiece...</p>}</ReactMarkdown>
+            {content ? <ReactMarkdown>{content}</ReactMarkdown> : <p className="text-muted-foreground">Start writing your masterpiece...</p>}
             </div>
         )}
       </CardContent>

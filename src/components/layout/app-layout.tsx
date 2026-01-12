@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -12,12 +13,22 @@ import { useNotes } from "@/hooks/use-notes";
 import { useUser, useAuth } from "@/firebase";
 import { Button } from "../ui/button";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 export function AppLayout() {
-  const { activeNote } = useNotes();
+  const { activeNote, dispatch } = useNotes();
   const { user } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
+  const searchParams = useSearchParams();
+  const noteId = searchParams.get('noteId');
+
+  useEffect(() => {
+    if (noteId) {
+      dispatch({ type: "SELECT_NOTE", payload: noteId });
+    }
+  }, [noteId, dispatch]);
+
 
   return (
     <SidebarProvider defaultOpen={true}>

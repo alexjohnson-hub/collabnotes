@@ -11,8 +11,17 @@ service cloud.firestore {
       // A user can get a document if they are an editor OR if the note is public.
       allow get: if (request.auth != null && request.auth.uid in resource.data.editors) || resource.data.isPublic == true;
       
-      // A user can create, update, or delete a note only if they are an editor.
-      allow create, update, delete: if request.auth != null && request.auth.uid in request.resource.data.editors;
+      // Allow creation if the user is an editor of the new note data
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.editors;
+
+      // Allow updates if the user is already an editor OR if the note is public and they are adding themselves as an editor.
+      allow update: if request.auth != null && (
+        (request.auth.uid in resource.data.editors) || 
+        (resource.data.isPublic == true && request.auth.uid in request.resource.data.editors)
+      );
+
+      // Allow deletion only if the user is an editor.
+      allow delete: if request.auth != null && request.auth.uid in resource.data.editors;
     }
 
     // A user can query the 'notes' collection only if they are filtering for notes where they are an editor.
